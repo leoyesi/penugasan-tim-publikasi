@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <title>Admin Penugasan Publikasi</title>
+</head>
+<body class="bg-slate-50 min-h-screen p-4 md:p-8">
+    <div class="max-w-7xl mx-auto">
+        <header class="mb-8 text-center">
+            <h1 class="text-3xl font-extrabold text-slate-800 tracking-tight">KONTROL PENUGASAN TIM PUBLIKASI</h1>
+            <p class="text-slate-500 mt-2">Monitoring beban kerja, jadwal, & sebaran orderan unit</p>
+        </header>
+
+        <!-- Filter & Rekap WA -->
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 mb-8 flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <label class="font-semibold text-slate-700">Periode:</label>
+                <select id="monthFilter" onchange="renderDashboard()" class="bg-slate-50 border border-slate-200 rounded-lg px-4 py-2 font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="">Memuat data...</option>
+                </select>
+            </div>
+            <button onclick="copyRekapWA()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-medium px-5 py-2.5 rounded-xl transition flex items-center gap-2 shadow-sm">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
+                Copy Rekap Grup WA
+            </button>
+        </div>
+
+        <!-- Metric & Charts Section (4 Grafik Utama) -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+            <!-- 1. Pie Chart Sebaran Order Per Unit -->
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between">
+                <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                    <span>🍕</span> Order Per Unit
+                </h2>
+                <div class="h-56 relative flex items-center justify-center">
+                    <canvas id="unitChart"></canvas>
+                </div>
+            </div>
+
+            <!-- 2. Pie Chart Murni: Foto & Video vs Desain Grafis -->
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between">
+                <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                    <span>🎨</span> Foto & Video vs Desain Grafis
+                </h2>
+                <div class="h-56 relative flex items-center justify-center">
+                    <canvas id="kategoriChart"></canvas>
+                </div>
+            </div>
+
+            <!-- 3. Horizontal Bar Chart Beban Kerja Personel (Side-by-side) -->
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between">
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <span>📊</span> Beban Kerja Personel
+                    </h2>
+                    <span class="text-[10px] text-slate-400 font-medium">🟢 ≤5 | 🟡 6-8 | 🔴 >8</span>
+                </div>
+                <div class="h-56 relative">
+                    <canvas id="personelBarChart"></canvas>
+                </div>
+            </div>
+
+            <!-- 4. Pie Chart Kebutuhan Alat Dipinjam -->
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between">
+                <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                    <span>📹</span> Alat Dipinjam
+                </h2>
+                <div class="h-56 relative flex items-center justify-center">
+                    <canvas id="alatChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Badges Ringkasan Personel -->
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 mb-10">
+            <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                <span>👥</span> Status Beban Kerja Tim
+            </h2>
+            <div id="personelStats" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3"></div>
+        </div>
+
+        <!-- Tabel Order Masuk -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-12">
+            <div class="p-6 bg-slate-800 text-white flex justify-between items-center">
+                <h2 class="text-lg font-bold">Daftar Order Masuk</h2>
+                <span class="text-xs bg-slate-700 px-3 py-1 rounded-full text-slate-300">Input manual bisa langsung di Google Sheet</span>
+            </div>
+            
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="border-b border-slate-100 text-xs font-bold text-slate-400 uppercase tracking-wider">
+                            <th class="p-4 pl-6">TGL/WAKTU/UNIT</th>
+                            <th class="p-4">DETAIL KEGIATAN</th>
+                            <th class="p-4">PILIH PERSONEL</th>
+                            <th class="p-4 text-center">STATUS</th>
+                        </tr>
+                    </thead>
+                    <tbody id="orderTable" class="divide-y divide-slate-100">
+                        <tr><td colspan="4" class="text-center p-8 text-slate-400">Memuat data orderan...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Kartu Jadwal Tim -->
+        <div class="mb-12">
+            <h2 class="text-2xl font-bold text-slate-800 mb-6 border-l-4 border-blue-600 pl-4">KARTU JADWAL TIM</h2>
+            <div id="scheduleCards" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+        </div>
+    </div>
+
+    <script>
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxxvr3Z8pSFI4QqCUEXppPhhqIK-IbpWCTRmSQJ0srUPo_Prl1Qa6VmmAq6F2Rn8uW3dw/exec';
+        
+        const TIM = ["Magang", "Dodai", "Nia", "Wahyu", "Yesi", "Indri"];
+        let allData = [];
+        
+        let unitChartObj = null;
+        let kategoriChartObj = null;
+        let personelBarChartObj = null;
+        let alatChartObj = null;
+
+        // Evaluasi Warna Indikator SDM
+        function getWorkloadColor(count) {
+            if (count <= 5) return '#10b981'; // Hijau: Normal / Ideal
+            if (count <= 8) return '#f59e0b'; // Kuning: Peringatan
+            return '#ef4444';                // Merah: Overload
+        }
+
+        function getWorkloadBadgeStyle(count) {
+            if (count <= 5) return 'bg-emerald-100 text-emerald-800 border-emerald-200';
+            if (count <= 8) return 'bg-amber-100 text-amber-800 border-amber-200';
+            return 'bg-rose-100 text-rose-800 border-rose-200';
+        }
+
+        // Deteksi Peminjaman Alat
+        function isPeminjamanAlat(item) {
+            const jenis = (item.jenisKerja || '').toLowerCase();
+            const kegiatan = (item.kegiatan || '').toLowerCase();
+            const alat = (item.alat || '').trim();
+            const jamAmbil = (item.jamAmbil || '').trim();
+
+            if (jenis.includes("peminjaman") || jenis.includes("pinjam alat")) return true;
+            if (kegiatan.includes("peminjaman") || kegiatan.includes("alat saja")) return true;
+            if (alat !== "" && alat !== "-" && (jenis === "-" || jenis === "" || jenis.includes("alat"))) return true;
+            if (jamAmbil !== "" && jamAmbil !== "-" && (jenis === "-" || jenis === "")) return true;
+
+            return false;
+        }
+
+        async function fetchData() {
+            try {
+                const res = await fetch(SCRIPT_URL);
+                allData = await res.json();
+                
+                if (allData.status === "error") {
+                    throw new Error(allData.message);
+                }
+
+                localStorage.setItem('penugasanDataCache', JSON.stringify(allData));
+                initMonthFilter();
+                renderDashboard();
+            } catch (err) {
+                console.warn("Gagal fetch data baru, mencoba cache local...", err);
+                const cached = localStorage.getItem('penugasanDataCache');
+                if (cached) {
+                    allData = JSON.parse(cached);
+                    initMonthFilter();
+                    renderDashboard();
+                } else {
+                    document.getElementById('orderTable').innerHTML = `<tr><td colspan="4" class="text-center p-8 text-red-500 font-semibold">Gagal terhubung ke Google Sheets.</td></tr>`;
+                }
+            }
+        }
+
+        function initMonthFilter() {
+            const months = [...new Set(allData.map(item => item.bulanTahun))].filter(b => b && b !== "Tanpa Tanggal");
+            const select = document.getElementById('monthFilter');
+            
+            const currentSelected = select.value;
+            select.innerHTML = '';
+            
+            months.forEach(m => {
+                const opt = document.createElement('option');
+                opt.value = m;
+                opt.textContent = m;
+                select.appendChild(opt);
+            });
+
+            if (currentSelected && months.includes(currentSelected)) {
+                select.value = currentSelected;
+            } else if (months.length > 0) {
+                select.value = months[months.length - 1]; 
+            }
+        }
+
+        function renderDashboard() {
+            const selectedMonth = document.getElementById('monthFilter').value;
+            const filteredData = allData.filter(item => item.bulanTahun === selectedMonth);
+
+            renderUnitChart(filteredData);
+            renderKategoriChart(filteredData);
+            renderPersonelBarChart(filteredData);
+            renderAlatChart(filteredData);
+            renderPersonelStats(filteredData);
+            renderTable(filteredData);
+            renderScheduleCards(filteredData);
+        }
+
+        // 1. Pie Chart Order Per Unit
+        function renderUnitChart(data) {
+            const unitCounts = {};
+            data.forEach(d => {
+                const u = d.unit || 'Lainnya';
+                unitCounts[u] = (unitCounts[u] || 0) + 1;
+            });
+
+            const ctx = document.getElementById('unitChart').getContext('2d');
+            if (unitChartObj) unitChartObj.destroy();
+
+            unitChartObj = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: Object.keys(unitCounts),
+                    datasets: [{
+                        data: Object.values(unitCounts),
+                        backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#64748b']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } }
+                    }
+                }
+            });
+        }
+
+        // 2. Pie Chart Murni Membandingkan 2 Jenis Pekerjaan (Foto & Video vs Desain Grafis)
+        function renderKategoriChart(data) {
+            const labelFotoVideo = 'Foto dan Video (pas foto, foto produk, foto yearbook, liputan)';
+            const labelDesain = 'Desain Grafis & Layout (poster, banner, brosur, buku, konten medsos, dll)';
+
+            const kategoriCounts = {
+                [labelFotoVideo]: 0,
+                [labelDesain]: 0
+            };
+
+            data.forEach(d => {
+                if (d.status === 'Canceled') return;
+
+                const jenisVal = (d.jenisKerja || '').trim();
+
+                // Hanya hitung jika merupakan Foto/Video atau Desain Grafis (Abaikan peminjaman alat & lainnya)
+                if (jenisVal.includes("Foto dan Video") || (jenisVal.toLowerCase().includes("foto") && !isPeminjamanAlat(d))) {
+                    kategoriCounts[labelFotoVideo]++;
+                } else if (jenisVal.includes("Desain Grafis") || jenisVal.toLowerCase().includes("desain") || jenisVal.toLowerCase().includes("layout")) {
+                    kategoriCounts[labelDesain]++;
+                }
+            });
+
+            const ctx = document.getElementById('kategoriChart').getContext('2d');
+            if (kategoriChartObj) kategoriChartObj.destroy();
+
+            kategoriChartObj = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: [labelFotoVideo, labelDesain],
+                    datasets: [{
+                        data: [kategoriCounts[labelFotoVideo], kategoriCounts[labelDesain]],
+                        backgroundColor: ['#3b82f6', '#8b5cf6']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 9 } } }
+                    }
+                }
+            });
+        }
+
+        // 3. Horizontal Bar Chart Beban Kerja Personel (Side-by-side)
+        function renderPersonelBarChart(data) {
+            const counts = {};
+            TIM.forEach(t => counts[t] = 0);
+
+            data.forEach(d => {
+                if (d.status !== 'Canceled' && !isPeminjamanAlat(d)) {
+                    d.petugas.forEach(p => {
+                        const matched = TIM.find(t => t.toLowerCase() === p.toLowerCase());
+                        if (matched) counts[matched]++;
+                    });
+                }
+            });
+
+            const ctx = document.getElementById('personelBarChart').getContext('2d');
+            if (personelBarChartObj) personelBarChartObj.destroy();
+
+            const barColors = TIM.map(t => getWorkloadColor(counts[t]));
+
+            personelBarChartObj = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: TIM,
+                    datasets: [{
+                        label: 'Jumlah Tugas',
+                        data: TIM.map(t => counts[t]),
+                        backgroundColor: barColors,
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    indexAxis: 'y', // Diagram batang HORIZONTAL
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { beginAtZero: true, ticks: { precision: 0 } }
+                    }
+                }
+            });
+        }
+
+        // 4. Pie Chart Kebutuhan Alat Dipinjam
+        function renderAlatChart(data) {
+            const alatCounts = {};
+            data.forEach(d => {
+                if (d.status !== 'Canceled' && d.alat && d.alat !== '-' && d.alat.trim() !== '') {
+                    const items = d.alat.split(',').map(x => x.trim()).filter(x => x !== '' && x !== '-');
+                    items.forEach(a => {
+                        alatCounts[a] = (alatCounts[a] || 0) + 1;
+                    });
+                }
+            });
+
+            const ctx = document.getElementById('alatChart').getContext('2d');
+            if (alatChartObj) alatChartObj.destroy();
+
+            const labels = Object.keys(alatCounts);
+            const values = Object.values(alatCounts);
+
+            if (labels.length === 0) {
+                alatChartObj = new Chart(ctx, {
+                    type: 'pie',
+                    data: {
+                        labels: ['Tidak Ada Peminjaman Alat'],
+                        datasets: [{ data: [1], backgroundColor: ['#e2e8f0'] }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } }
+                    }
+                });
+                return;
+            }
+
+            alatChartObj = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: values,
+                        backgroundColor: ['#f59e0b', '#ec4899', '#8b5cf6', '#3b82f6', '#10b981', '#06b6d4', '#64748b', '#ef4444']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } }
+                    }
+                }
+            });
+        }
+
+        function renderPersonelStats(data) {
+            const counts = {};
+            TIM.forEach(t => counts[t] = 0);
+
+            data.forEach(d => {
+                if (d.status !== 'Canceled' && !isPeminjamanAlat(d)) {
+                    d.petugas.forEach(p => {
+                        const matched = TIM.find(t => t.toLowerCase() === p.toLowerCase());
+                        if (matched) counts[matched]++;
+                    });
+                }
+            });
+
+            const container = document.getElementById('personelStats');
+            container.innerHTML = TIM.map(t => {
+                const count = counts[t];
+                const badgeStyle = getWorkloadBadgeStyle(count);
+                return `
+                    <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-100 flex items-center justify-between">
+                        <span class="font-bold text-slate-700 text-xs">${t.toUpperCase()}</span>
+                        <span class="font-extrabold px-2.5 py-0.5 rounded-lg text-xs border ${badgeStyle}">${count} TUGAS</span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderTable(data) {
+            const tbody = document.getElementById('orderTable');
+            if (data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" class="text-center p-8 text-slate-400">Tidak ada orderan pada periode ini.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = data.map(item => {
+                const isAlat = isPeminjamanAlat(item);
+                
+                return `
+                <tr class="hover:bg-slate-50/80 transition">
+                    <td class="p-4 pl-6 align-top">
+                        <div class="font-bold text-blue-600 text-sm">${item.tglFormatted}</div>
+                        <div class="text-xs text-slate-500 font-medium mt-0.5">
+                            ⏰ ${item.jam || item.jamAmbil || '-'} ${item.durasi ? '| ⌛ ' + item.durasi : ''}
+                        </div>
+                        <span class="inline-block mt-2 px-2 py-0.5 bg-slate-100 text-slate-600 font-bold text-[10px] rounded uppercase">
+                            ${item.unit}
+                        </span>
+                    </td>
+                    <td class="p-4 align-top">
+                        <div class="font-bold text-slate-800 text-base flex items-center gap-2">
+                            ${item.kegiatan}
+                            ${isAlat ? '<span class="bg-amber-100 text-amber-700 text-[10px] font-bold px-2 py-0.5 rounded">HANYA ALAT SAJA</span>' : ''}
+                        </div>
+                        <div class="text-xs text-slate-500 font-medium mt-1">PIC: ${item.pic}</div>
+                        
+                        <button onclick="toggleDetail('${item.rowId}')" class="text-xs text-blue-500 hover:text-blue-700 font-bold mt-2 inline-flex items-center gap-1">
+                            LIHAT DETAIL ▼
+                        </button>
+                        
+                        <div id="detail-${item.rowId}" class="hidden mt-3 p-3 bg-slate-50 rounded-lg text-xs text-slate-600 border border-slate-200 space-y-1">
+                            <div><strong>Jenis Pekerjaan:</strong> ${item.jenisKerja}</div>
+                            <div><strong>Detail:</strong> ${item.detail}</div>
+                            <div><strong>Peralatan:</strong> ${item.alat}</div>
+                            <div><strong>Jam Pinjam/Kembali:</strong> ${item.jamAmbil} / ${item.jamKembali}</div>
+                        </div>
+                    </td>
+                    <td class="p-4 align-top">
+                        ${isAlat ? `
+                            <div class="flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50/80 border border-amber-200/60 px-3 py-2 rounded-xl font-medium">
+                                <span>🔧</span>
+                                <span>Hanya peminjaman alat (Tidak perlu personel)</span>
+                            </div>
+                        ` : `
+                            <div class="flex flex-wrap gap-1.5">
+                                ${TIM.map(t => {
+                                    const active = item.petugas.some(p => p.toLowerCase() === t.toLowerCase());
+                                    return `
+                                        <button onclick="togglePetugas(${item.rowId}, '${t}')" 
+                                            class="px-2.5 py-1 text-xs font-semibold rounded-md transition ${active ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}">
+                                            ${t}
+                                        </button>
+                                    `;
+                                }).join('')}
+                            </div>
+                        `}
+                    </td>
+                    <td class="p-4 align-top text-center">
+                        <select onchange="updateStatus(${item.rowId}, this.value)" 
+                            class="text-xs font-bold px-3 py-1.5 rounded-lg border focus:outline-none ${getStatusStyle(item.status)}">
+                            <option value="In Progress" ${item.status === 'In Progress' ? 'selected' : ''}>⏳ In Progress</option>
+                            <option value="Done" ${item.status === 'Done' ? 'selected' : ''}>✅ Done</option>
+                            <option value="Canceled" ${item.status === 'Canceled' ? 'selected' : ''}>❌ Canceled</option>
+                        </select>
+                    </td>
+                </tr>
+            `}).join('');
+        }
+
+        function renderScheduleCards(data) {
+            const container = document.getElementById('scheduleCards');
+            
+            container.innerHTML = TIM.map(t => {
+                const tasks = data.filter(d => !isPeminjamanAlat(d) && d.status !== 'Canceled' && d.petugas.some(p => p.toLowerCase() === t.toLowerCase()));
+                
+                return `
+                    <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+                        <div class="flex justify-between items-center pb-3 mb-3 border-b border-slate-100">
+                            <h3 class="font-extrabold text-slate-800 text-lg">${t}</h3>
+                            <span class="bg-blue-50 text-blue-600 font-bold px-2.5 py-1 rounded-full text-xs">${tasks.length} Tugas</span>
+                        </div>
+                        <div class="space-y-3">
+                            ${tasks.length === 0 ? '<p class="text-xs text-slate-400 italic">Tidak ada penugasan.</p>' : tasks.map(tk => `
+                                <div class="p-3 bg-slate-50 rounded-xl border border-slate-100 text-xs">
+                                    <div class="font-bold text-blue-600">${tk.tglFormatted}</div>
+                                    <div class="font-bold text-slate-800 mt-1">${tk.kegiatan}</div>
+                                    <div class="text-slate-500 text-[11px] mt-0.5">${tk.unit} | PIC: ${tk.pic}</div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function getStatusStyle(status) {
+            switch(status) {
+                case 'Done': return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+                case 'Canceled': return 'bg-rose-50 text-rose-700 border-rose-200';
+                default: return 'bg-amber-50 text-amber-700 border-amber-200';
+            }
+        }
+
+        async function togglePetugas(rowId, nama) {
+            const idx = allData.findIndex(d => d.rowId === rowId);
+            if (idx === -1) return;
+
+            let list = [...allData[idx].petugas];
+            const pIdx = list.findIndex(p => p.toLowerCase() === nama.toLowerCase());
+
+            if (pIdx > -1) list.splice(pIdx, 1);
+            else list.push(nama);
+
+            allData[idx].petugas = list;
+            renderDashboard();
+
+            await syncData(rowId, list, allData[idx].status);
+        }
+
+        async function updateStatus(rowId, statusBaru) {
+            const idx = allData.findIndex(d => d.rowId === rowId);
+            if (idx === -1) return;
+
+            allData[idx].status = statusBaru;
+            renderDashboard();
+
+            await syncData(rowId, allData[idx].petugas, statusBaru);
+        }
+
+        async function syncData(rowId, petugasList, status) {
+            try {
+                document.body.style.cursor = 'wait';
+                await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ rowId, petugasList, status })
+                });
+                document.body.style.cursor = 'default';
+            } catch (error) {
+                console.error("Gagal sinkronisasi data:", error);
+                document.body.style.cursor = 'default';
+            }
+        }
+
+        function copyRekapWA() {
+            const selectedMonth = document.getElementById('monthFilter').value;
+            const filteredData = allData.filter(item => item.bulanTahun === selectedMonth && item.status !== 'Canceled');
+
+            let text = `*REKAP PENUGASAN TIM PUBLIKASI - ${selectedMonth.toUpperCase()}*\n\n`;
+
+            TIM.forEach(t => {
+                const tasks = filteredData.filter(d => !isPeminjamanAlat(d) && d.petugas.some(p => p.toLowerCase() === t.toLowerCase()));
+                text += `*${t.toUpperCase()}* (${tasks.length} tugas):\n`;
+                if (tasks.length === 0) {
+                    text += `- Nihil\n`;
+                } else {
+                    tasks.forEach(tk => {
+                        text += `- ${tk.tglFormatted}: ${tk.kegiatan} (${tk.unit})\n`;
+                    });
+                }
+                text += `\n`;
+            });
+
+            navigator.clipboard.writeText(text).then(() => {
+                alert("Teks rekap WhatsApp berhasil disalin ke clipboard!");
+            });
+        }
+
+        function toggleDetail(id) { 
+            document.getElementById(`detail-${id}`).classList.toggle('hidden'); 
+        }
+
+        fetchData();
+    </script>
+</body>
+</html>
