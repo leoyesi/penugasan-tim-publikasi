@@ -9,12 +9,12 @@
 </head>
 <body class="bg-slate-50 min-h-screen p-4 md:p-8">
     <div class="max-w-7xl mx-auto">
-        <header class="mb-10 text-center">
+        <header class="mb-8 text-center">
             <h1 class="text-3xl font-extrabold text-slate-800 tracking-tight">KONTROL PENUGASAN TIM PUBLIKASI</h1>
             <p class="text-slate-500 mt-2">Monitoring beban kerja, jadwal, & sebaran orderan unit</p>
         </header>
 
-        <!-- Filter & Rekap -->
+        <!-- Filter & Rekap WA -->
         <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 mb-8 flex flex-wrap items-center justify-between gap-4">
             <div class="flex items-center gap-3">
                 <label class="font-semibold text-slate-700">Periode:</label>
@@ -28,22 +28,48 @@
             </button>
         </div>
 
-        <!-- Metric Section -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-10">
-            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-                <h2 class="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">📈 Sebaran Order Per Unit</h2>
-                <div class="h-64 flex items-center justify-center">
+        <!-- Metric & Charts Section (3 Grafik Utama) -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            <!-- 1. Pie Chart Sebaran Order Per Unit -->
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between">
+                <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                    <span>🍕</span> Sebaran Order Per Unit
+                </h2>
+                <div class="h-60 relative flex items-center justify-center">
                     <canvas id="unitChart"></canvas>
                 </div>
             </div>
 
-            <div class="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-                <h2 class="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">📊 Distribusi Tugas Personel</h2>
-                <div id="personelStats" class="grid grid-cols-2 sm:grid-cols-3 gap-4"></div>
+            <!-- 2. Bar Chart Tugas Personel -->
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between">
+                <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                    <span>📊</span> Grafik Tugas Per Personel
+                </h2>
+                <div class="h-60 relative">
+                    <canvas id="personelBarChart"></canvas>
+                </div>
+            </div>
+
+            <!-- 3. Pie Chart Kebutuhan Alat Dipinjam -->
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between">
+                <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                    <span>📹</span> Pie Chart Alat Dipinjam
+                </h2>
+                <div class="h-60 relative flex items-center justify-center">
+                    <canvas id="alatChart"></canvas>
+                </div>
             </div>
         </div>
 
-        <!-- Tabel Order -->
+        <!-- Badges Ringkasan Personel -->
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 mb-10">
+            <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                <span>👥</span> Ringkasan Beban Kerja Tim
+            </h2>
+            <div id="personelStats" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3"></div>
+        </div>
+
+        <!-- Tabel Order Masuk -->
         <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-12">
             <div class="p-6 bg-slate-800 text-white flex justify-between items-center">
                 <h2 class="text-lg font-bold">Daftar Order Masuk</h2>
@@ -67,7 +93,7 @@
             </div>
         </div>
 
-        <!-- Kartu Jadwal Petugas -->
+        <!-- Kartu Jadwal Tim -->
         <div class="mb-12">
             <h2 class="text-2xl font-bold text-slate-800 mb-6 border-l-4 border-blue-600 pl-4">KARTU JADWAL TIM</h2>
             <div id="scheduleCards" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
@@ -79,7 +105,25 @@
         
         const TIM = ["Magang", "Dodai", "Nia", "Wahyu", "Yesi", "Indri"];
         let allData = [];
+        
         let unitChartObj = null;
+        let personelBarChartObj = null;
+        let alatChartObj = null;
+
+        // Fungsi Deteksi Apakah Order Merupakan Peminjaman Alat Saja
+        function isPeminjamanAlat(item) {
+            const jenis = (item.jenisKerja || '').toLowerCase();
+            const kegiatan = (item.kegiatan || '').toLowerCase();
+            const alat = (item.alat || '').trim();
+            const jamAmbil = (item.jamAmbil || '').trim();
+
+            if (jenis.includes("peminjaman") || jenis.includes("pinjam alat")) return true;
+            if (kegiatan.includes("peminjaman") || kegiatan.includes("alat saja")) return true;
+            if (alat !== "" && alat !== "-" && (jenis === "-" || jenis === "" || jenis.includes("alat"))) return true;
+            if (jamAmbil !== "" && jamAmbil !== "-" && (jenis === "-" || jenis === "")) return true;
+
+            return false;
+        }
 
         async function fetchData() {
             try {
@@ -131,13 +175,16 @@
             const selectedMonth = document.getElementById('monthFilter').value;
             const filteredData = allData.filter(item => item.bulanTahun === selectedMonth);
 
-            renderChart(filteredData);
+            renderUnitChart(filteredData);
+            renderPersonelBarChart(filteredData);
+            renderAlatChart(filteredData);
             renderPersonelStats(filteredData);
             renderTable(filteredData);
             renderScheduleCards(filteredData);
         }
 
-        function renderChart(data) {
+        // 1. Pie Chart Sebaran Unit
+        function renderUnitChart(data) {
             const unitCounts = {};
             data.forEach(d => {
                 const u = d.unit || 'Lainnya';
@@ -156,7 +203,105 @@
                         backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#64748b']
                     }]
                 },
-                options: { responsive: true, maintainAspectRatio: false }
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } }
+                    }
+                }
+            });
+        }
+
+        // 2. Bar Chart Tugas Personel
+        function renderPersonelBarChart(data) {
+            const counts = {};
+            TIM.forEach(t => counts[t] = 0);
+
+            data.forEach(d => {
+                if (d.status !== 'Canceled' && !isPeminjamanAlat(d)) {
+                    d.petugas.forEach(p => {
+                        const matched = TIM.find(t => t.toLowerCase() === p.toLowerCase());
+                        if (matched) counts[matched]++;
+                    });
+                }
+            });
+
+            const ctx = document.getElementById('personelBarChart').getContext('2d');
+            if (personelBarChartObj) personelBarChartObj.destroy();
+
+            personelBarChartObj = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: TIM,
+                    datasets: [{
+                        label: 'Jumlah Tugas',
+                        data: TIM.map(t => counts[t]),
+                        backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4'],
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, ticks: { precision: 0 } }
+                    }
+                }
+            });
+        }
+
+        // 3. Pie Chart Kebutuhan Alat Dipinjam
+        function renderAlatChart(data) {
+            const alatCounts = {};
+            data.forEach(d => {
+                if (d.status !== 'Canceled' && d.alat && d.alat !== '-' && d.alat.trim() !== '') {
+                    const items = d.alat.split(',').map(x => x.trim()).filter(x => x !== '' && x !== '-');
+                    items.forEach(a => {
+                        alatCounts[a] = (alatCounts[a] || 0) + 1;
+                    });
+                }
+            });
+
+            const ctx = document.getElementById('alatChart').getContext('2d');
+            if (alatChartObj) alatChartObj.destroy();
+
+            const labels = Object.keys(alatCounts);
+            const values = Object.values(alatCounts);
+
+            if (labels.length === 0) {
+                alatChartObj = new Chart(ctx, {
+                    type: 'pie',
+                    data: {
+                        labels: ['Tidak Ada Peminjaman Alat'],
+                        datasets: [{ data: [1], backgroundColor: ['#e2e8f0'] }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } }
+                    }
+                });
+                return;
+            }
+
+            alatChartObj = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: values,
+                        backgroundColor: ['#f59e0b', '#ec4899', '#8b5cf6', '#3b82f6', '#10b981', '#06b6d4', '#64748b', '#ef4444']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } }
+                    }
+                }
             });
         }
 
@@ -165,7 +310,7 @@
             TIM.forEach(t => counts[t] = 0);
 
             data.forEach(d => {
-                if (d.status !== 'Canceled') {
+                if (d.status !== 'Canceled' && !isPeminjamanAlat(d)) {
                     d.petugas.forEach(p => {
                         const matched = TIM.find(t => t.toLowerCase() === p.toLowerCase());
                         if (matched) counts[matched]++;
@@ -175,9 +320,9 @@
 
             const container = document.getElementById('personelStats');
             container.innerHTML = TIM.map(t => `
-                <div class="bg-slate-50 p-4 rounded-xl border border-slate-100 flex items-center justify-between">
-                    <span class="font-bold text-slate-700 text-sm">${t.toUpperCase()}</span>
-                    <span class="bg-blue-100 text-blue-700 font-extrabold px-3 py-1 rounded-lg text-xs">${counts[t]} TUGAS</span>
+                <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-100 flex items-center justify-between">
+                    <span class="font-bold text-slate-700 text-xs">${t.toUpperCase()}</span>
+                    <span class="bg-blue-100 text-blue-700 font-extrabold px-2.5 py-0.5 rounded-lg text-xs">${counts[t]} TUGAS</span>
                 </div>
             `).join('');
         }
@@ -190,7 +335,7 @@
             }
 
             tbody.innerHTML = data.map(item => {
-                const isAlatSaja = item.jenisKerja.toLowerCase().includes("peminjaman alat") || item.kegiatan.toLowerCase().includes("alat saja");
+                const isAlat = isPeminjamanAlat(item);
                 
                 return `
                 <tr class="hover:bg-slate-50/80 transition">
@@ -206,7 +351,7 @@
                     <td class="p-4 align-top">
                         <div class="font-bold text-slate-800 text-base flex items-center gap-2">
                             ${item.kegiatan}
-                            ${isAlatSaja ? '<span class="bg-amber-100 text-amber-700 text-[10px] font-bold px-2 py-0.5 rounded">ALAT SAJA</span>' : ''}
+                            ${isAlat ? '<span class="bg-amber-100 text-amber-700 text-[10px] font-bold px-2 py-0.5 rounded">HANYA ALAT SAJA</span>' : ''}
                         </div>
                         <div class="text-xs text-slate-500 font-medium mt-1">PIC: ${item.pic}</div>
                         
@@ -222,7 +367,12 @@
                         </div>
                     </td>
                     <td class="p-4 align-top">
-                        ${isAlatSaja ? '<span class="text-xs text-slate-400 italic">Tidak perlu personel</span>' : `
+                        ${isAlat ? `
+                            <div class="flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50/80 border border-amber-200/60 px-3 py-2 rounded-xl font-medium">
+                                <span>🔧</span>
+                                <span>Hanya peminjaman alat (Tidak perlu personel)</span>
+                            </div>
+                        ` : `
                             <div class="flex flex-wrap gap-1.5">
                                 ${TIM.map(t => {
                                     const active = item.petugas.some(p => p.toLowerCase() === t.toLowerCase());
@@ -252,7 +402,7 @@
             const container = document.getElementById('scheduleCards');
             
             container.innerHTML = TIM.map(t => {
-                const tasks = data.filter(d => d.status !== 'Canceled' && d.petugas.some(p => p.toLowerCase() === t.toLowerCase()));
+                const tasks = data.filter(d => !isPeminjamanAlat(d) && d.status !== 'Canceled' && d.petugas.some(p => p.toLowerCase() === t.toLowerCase()));
                 
                 return `
                     <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
@@ -331,7 +481,7 @@
             let text = `*REKAP PENUGASAN TIM PUBLIKASI - ${selectedMonth.toUpperCase()}*\n\n`;
 
             TIM.forEach(t => {
-                const tasks = filteredData.filter(d => d.petugas.some(p => p.toLowerCase() === t.toLowerCase()));
+                const tasks = filteredData.filter(d => !isPeminjamanAlat(d) && d.petugas.some(p => p.toLowerCase() === t.toLowerCase()));
                 text += `*${t.toUpperCase()}* (${tasks.length} tugas):\n`;
                 if (tasks.length === 0) {
                     text += `- Nihil\n`;
@@ -352,7 +502,6 @@
             document.getElementById(`detail-${id}`).classList.toggle('hidden'); 
         }
 
-        // Jalankan pendaftaran data awal saat halaman selesai dimuat
         fetchData();
     </script>
 </body>
