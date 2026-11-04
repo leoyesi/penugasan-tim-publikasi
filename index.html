@@ -14,7 +14,7 @@
             <p class="text-slate-500 mt-2">Monitoring beban kerja, jadwal, & sebaran orderan unit</p>
         </header>
 
-        <!-- Filter & Rekap WA -->
+        <!-- Filter, Status Admin, & Rekap WA -->
         <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 mb-8 flex flex-wrap items-center justify-between gap-4">
             <div class="flex items-center gap-3">
                 <label class="font-semibold text-slate-700">Periode:</label>
@@ -22,10 +22,20 @@
                     <option value="">Memuat data...</option>
                 </select>
             </div>
-            <button onclick="copyRekapWA()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-medium px-5 py-2.5 rounded-xl transition flex items-center gap-2 shadow-sm">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
-                Copy Rekap Grup WA
-            </button>
+            
+            <div class="flex items-center gap-3">
+                <!-- Status Login Admin Sekali Isi -->
+                <div id="adminAuthBtnContainer">
+                    <button id="adminAuthBtn" onclick="checkAdminAccess()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 font-bold px-3 py-2 rounded-xl text-xs transition flex items-center gap-1.5">
+                        🔒 Login Admin
+                    </button>
+                </div>
+
+                <button onclick="copyRekapWA()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-medium px-5 py-2.5 rounded-xl transition flex items-center gap-2 shadow-sm">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
+                    Copy Rekap Grup WA
+                </button>
+            </div>
         </div>
 
         <!-- 3 Pie Chart Utama -->
@@ -85,7 +95,7 @@
         <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-12">
             <div class="p-6 bg-slate-800 text-white flex justify-between items-center">
                 <h2 class="text-lg font-bold">Daftar Order Masuk</h2>
-                <span class="text-xs bg-slate-700 px-3 py-1 rounded-full text-slate-300">🔐 Pilih Personel & Edit Poin Khusus Admin (Password Required)</span>
+                <span class="text-xs bg-slate-700 px-3 py-1 rounded-full text-slate-300">🔐 Hak Akses Pengeditan: leonardus.yesi@sekolahathalia.sch.id</span>
             </div>
             
             <div class="overflow-x-auto">
@@ -115,7 +125,8 @@
     <script>
         const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxxvr3Z8pSFI4QqCUEXppPhhqIK-IbpWCTRmSQJ0srUPo_Prl1Qa6VmmAq6F2Rn8uW3dw/exec';
         
-        // PASSWORD ADMIN
+        // KONFIGURASI AKUN ADMIN RESMI
+        const ALLOWED_ADMIN_EMAIL = "leonardus.yesi@sekolahathalia.sch.id";
         const ADMIN_PASSWORD = "admin123";
 
         const TIM = ["Magang", "Dodai", "Nia", "Wahyu", "Yesi", "Indri"];
@@ -125,6 +136,65 @@
         let kategoriChartObj = null;
         let personelBarChartObj = null;
         let alatChartObj = null;
+
+        // FUNGSI VERIFIKASI AKUN ADMIN (SEKALI LOGIN)
+        function checkAdminAccess() {
+            let loggedInEmail = sessionStorage.getItem('adminEmail');
+            
+            // Jika sudah terverifikasi di sesi ini, langsung izinkan
+            if (loggedInEmail && loggedInEmail.toLowerCase() === ALLOWED_ADMIN_EMAIL.toLowerCase()) {
+                return true;
+            }
+
+            // Jika belum login, tanyakan email & password sekali saja
+            const emailInput = prompt("📧 MASUKKAN EMAIL ADMIN AKUN:");
+            if (emailInput === null) return false;
+
+            if (emailInput.trim().toLowerCase() !== ALLOWED_ADMIN_EMAIL.toLowerCase()) {
+                alert(`❌ Akses Ditolak! Email '${emailInput}' tidak memiliki hak akses Admin.`);
+                return false;
+            }
+
+            const passInput = prompt("🔐 MASUKKAN PASSWORD ADMIN:");
+            if (passInput === null) return false;
+
+            if (passInput !== ADMIN_PASSWORD) {
+                alert("❌ Password salah! Akses ditolak.");
+                return false;
+            }
+
+            // Simpan sesi login ke sessionStorage
+            sessionStorage.setItem('adminEmail', emailInput.trim().toLowerCase());
+            updateAdminUI();
+            alert("✅ Login Admin Berhasil! Anda bebas melakukan pengeditan penugasan & poin selama sesi browser ini.");
+            return true;
+        }
+
+        function logoutAdmin() {
+            sessionStorage.removeItem('adminEmail');
+            updateAdminUI();
+            alert("🔒 Anda telah logout dari mode Admin.");
+        }
+
+        function updateAdminUI() {
+            const btnContainer = document.getElementById('adminAuthBtnContainer');
+            const loggedInEmail = sessionStorage.getItem('adminEmail');
+            
+            if (loggedInEmail && loggedInEmail.toLowerCase() === ALLOWED_ADMIN_EMAIL.toLowerCase()) {
+                btnContainer.innerHTML = `
+                    <div class="bg-emerald-50 border border-emerald-200 text-emerald-800 font-bold px-3 py-1.5 rounded-xl text-xs flex items-center gap-2">
+                        <span>🟢 Admin Active: ${loggedInEmail}</span>
+                        <button onclick="logoutAdmin()" class="underline text-rose-600 hover:text-rose-800 font-extrabold ml-1">Logout</button>
+                    </div>
+                `;
+            } else {
+                btnContainer.innerHTML = `
+                    <button id="adminAuthBtn" onclick="checkAdminAccess()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 font-bold px-3 py-2 rounded-xl text-xs transition flex items-center gap-1.5">
+                        🔒 Login Admin
+                    </button>
+                `;
+            }
+        }
 
         function getWorkloadColor(points) {
             if (points <= 5) return '#10b981';
@@ -163,6 +233,7 @@
 
                 localStorage.setItem('penugasanDataCache', JSON.stringify(allData));
                 initMonthFilter();
+                updateAdminUI();
                 renderDashboard();
             } catch (err) {
                 console.warn("Gagal fetch data baru, mencoba cache local...", err);
@@ -170,6 +241,7 @@
                 if (cached) {
                     allData = JSON.parse(cached);
                     initMonthFilter();
+                    updateAdminUI();
                     renderDashboard();
                 } else {
                     document.getElementById('orderTable').innerHTML = `<tr><td colspan="4" class="text-center p-8 text-red-500 font-semibold">Gagal terhubung ke Google Sheets.</td></tr>`;
@@ -514,15 +586,9 @@
             }
         }
 
-        // PENUGASAN PERSONEL KHUSUS ADMIN DENGAN VERIFIKASI PASSWORD
+        // PENUGASAN PERSONEL DENGAN OTENTIKASI EMAIL & SESI LOGIN
         async function togglePetugas(rowId, nama) {
-            const pass = prompt("🔐 MASUKKAN PASSWORD ADMIN UNTUK MENUGASKAN PERSONEL:");
-            if (pass === null) return;
-
-            if (pass !== ADMIN_PASSWORD) {
-                alert("❌ Password salah! Anda tidak memiliki akses untuk memilih personel.");
-                return;
-            }
+            if (!checkAdminAccess()) return;
 
             const idx = allData.findIndex(d => d.rowId === rowId);
             if (idx === -1) return;
@@ -539,15 +605,9 @@
             await syncData(rowId, list, allData[idx].status, allData[idx].bobot);
         }
 
-        // EDIT BOBOT POIN KHUSUS ADMIN DENGAN VERIFIKASI PASSWORD
+        // EDIT BOBOT POIN DENGAN OTENTIKASI EMAIL & SESI LOGIN
         async function editBobotAdmin(rowId, bobotSaatIni) {
-            const pass = prompt("🔐 MASUKKAN PASSWORD ADMIN UNTUK MENGUBAH POIN:");
-            if (pass === null) return;
-
-            if (pass !== ADMIN_PASSWORD) {
-                alert("❌ Password salah! Akses ditolak.");
-                return;
-            }
+            if (!checkAdminAccess()) return;
 
             const inputBaru = prompt(`✏️ Ubah Poin Bobot Pekerjaan (Angka 1 - 5):`, bobotSaatIni);
             if (inputBaru === null) return;
@@ -566,7 +626,10 @@
             }
         }
 
+        // UBAH STATUS PENUGASAN DENGAN OTENTIKASI EMAIL & SESI LOGIN
         async function updateStatus(rowId, statusBaru) {
+            if (!checkAdminAccess()) return;
+
             const idx = allData.findIndex(d => d.rowId === rowId);
             if (idx === -1) return;
 
