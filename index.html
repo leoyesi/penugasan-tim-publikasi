@@ -85,7 +85,7 @@
         <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-12">
             <div class="p-6 bg-slate-800 text-white flex justify-between items-center">
                 <h2 class="text-lg font-bold">Daftar Order Masuk</h2>
-                <span class="text-xs bg-slate-700 px-3 py-1 rounded-full text-slate-300">Klik badge 'Poin' untuk edit bobot (khusus Admin)</span>
+                <span class="text-xs bg-slate-700 px-3 py-1 rounded-full text-slate-300">🔐 Pilih Personel & Edit Poin Khusus Admin (Password Required)</span>
             </div>
             
             <div class="overflow-x-auto">
@@ -115,7 +115,7 @@
     <script>
         const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxxvr3Z8pSFI4QqCUEXppPhhqIK-IbpWCTRmSQJ0srUPo_Prl1Qa6VmmAq6F2Rn8uW3dw/exec';
         
-        // PASSWORD ADMIN UNTUK UBAH BOBOT POIN
+        // PASSWORD ADMIN
         const ADMIN_PASSWORD = "admin123";
 
         const TIM = ["Magang", "Dodai", "Nia", "Wahyu", "Yesi", "Indri"];
@@ -427,7 +427,6 @@
                         <div class="font-bold text-slate-800 text-base flex items-center gap-2">
                             ${item.kegiatan}
                             
-                            <!-- BUTTON POIN DENGAN VERIFIKASI PASSWORD ADMIN -->
                             <button onclick="editBobotAdmin(${item.rowId}, ${item.bobot})" 
                                 title="Klik untuk ubah poin (Khusus Admin)"
                                 class="bg-purple-100 hover:bg-purple-200 text-purple-700 text-[10px] font-bold px-2 py-0.5 rounded transition flex items-center gap-1">
@@ -515,7 +514,32 @@
             }
         }
 
-        // EDIT BOBOT KHUSUS ADMIN DENGAN POP-UP PASSWORD
+        // PENUGASAN PERSONEL KHUSUS ADMIN DENGAN VERIFIKASI PASSWORD
+        async function togglePetugas(rowId, nama) {
+            const pass = prompt("🔐 MASUKKAN PASSWORD ADMIN UNTUK MENUGASKAN PERSONEL:");
+            if (pass === null) return;
+
+            if (pass !== ADMIN_PASSWORD) {
+                alert("❌ Password salah! Anda tidak memiliki akses untuk memilih personel.");
+                return;
+            }
+
+            const idx = allData.findIndex(d => d.rowId === rowId);
+            if (idx === -1) return;
+
+            let list = [...allData[idx].petugas];
+            const pIdx = list.findIndex(p => p.toLowerCase() === nama.toLowerCase());
+
+            if (pIdx > -1) list.splice(pIdx, 1);
+            else list.push(nama);
+
+            allData[idx].petugas = list;
+            renderDashboard();
+
+            await syncData(rowId, list, allData[idx].status, allData[idx].bobot);
+        }
+
+        // EDIT BOBOT POIN KHUSUS ADMIN DENGAN VERIFIKASI PASSWORD
         async function editBobotAdmin(rowId, bobotSaatIni) {
             const pass = prompt("🔐 MASUKKAN PASSWORD ADMIN UNTUK MENGUBAH POIN:");
             if (pass === null) return;
@@ -540,22 +564,6 @@
                 renderDashboard();
                 await syncData(rowId, allData[idx].petugas, allData[idx].status, val);
             }
-        }
-
-        async function togglePetugas(rowId, nama) {
-            const idx = allData.findIndex(d => d.rowId === rowId);
-            if (idx === -1) return;
-
-            let list = [...allData[idx].petugas];
-            const pIdx = list.findIndex(p => p.toLowerCase() === nama.toLowerCase());
-
-            if (pIdx > -1) list.splice(pIdx, 1);
-            else list.push(nama);
-
-            allData[idx].petugas = list;
-            renderDashboard();
-
-            await syncData(rowId, list, allData[idx].status, allData[idx].bobot);
         }
 
         async function updateStatus(rowId, statusBaru) {
