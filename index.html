@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kontrol Penugasan Tim Publikasi</title>
+    <!-- Google Font Inter for enhanced readability -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body class="bg-slate-50/80 text-slate-800 min-h-screen p-3 sm:p-6 md:p-8 antialiased selection:bg-blue-500 selection:text-white">
+    <div class="max-w-7xl mx-auto space-y-6 sm:space-y-8">
+
+        <!-- HEADER APLIKASI -->
+        <header class="text-center space-y-1.5 sm:space-y-2 pt-2 sm:pt-4">
+            <div class="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 text-blue-700 text-xs font-bold rounded-full border border-blue-100 mb-1">
+                <span class="w-2 h-2 rounded-full bg-blue-600 animate-pulse"></span>
+                Sistem Penugasan & Beban Kerja
+            </div>
+            <h1 class="text-2xl sm:text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight">KONTROL PENUGASAN TIM PUBLIKASI</h1>
+            <p class="text-xs sm:text-sm text-slate-500 font-medium max-w-xl mx-auto">Monitoring beban kerja, rekap poin bulanan, & sebaran orderan unit secara real-time</p>
+        </header>
+
+        <!-- TOOLBAR: FILTER PERIODE, LOGIN ADMIN, PANDUAN BOBOT (TUNGGAL), & REKAP WA -->
+        <div class="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-slate-200/80 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 transition-all">
+            <!-- Filter Periode -->
+            <div class="flex items-center gap-3 bg-slate-50 p-1.5 sm:p-2 rounded-xl border border-slate-200/70 w-full md:w-auto">
+                <label for="monthFilter" class="font-semibold text-xs sm:text-sm text-slate-700 pl-2 whitespace-nowrap flex items-center gap-1.5">
+                    <span>📅</span> Periode:
+                </label>
+                <select id="monthFilter" onchange="renderDashboard()" class="w-full md:w-auto bg-white border border-slate-200 rounded-lg px-3 py-1.5 font-semibold text-xs sm:text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition shadow-sm">
+                    <option value="">Memuat data...</option>
+                </select>
+            </div>
+            
+            <!-- Action Buttons Group (Single Row Responsive Stack) -->
+            <div class="flex flex-wrap items-center gap-2.5 sm:gap-3 w-full md:w-auto justify-start md:justify-end">
+                <!-- Status Login Admin -->
+                <div id="adminAuthBtnContainer" class="w-full sm:w-auto">
+                    <button id="adminAuthBtn" onclick="checkAdminAccess()" class="w-full sm:w-auto bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 border border-slate-300/80 font-bold px-3.5 py-2 rounded-xl text-xs sm:text-sm transition flex items-center justify-center gap-1.5 shadow-sm">
+                        🔒 Login Admin
+                    </button>
+                </div>
+
+                <!-- TOMBOL PANDUAN BOBOT POIN (TUNGGAL DI SELURUH APLIKASI) -->
+                <button onclick="openBobotModal()" class="w-full sm:w-auto bg-purple-50 hover:bg-purple-100 active:bg-purple-200 text-purple-700 border border-purple-200/80 font-bold px-3.5 py-2 rounded-xl transition flex items-center justify-center gap-2 text-xs sm:text-sm shadow-sm">
+                    <span>📘</span> Panduan Bobot Poin
+                </button>
+
+                <!-- Tombol Rekap WA -->
+                <button onclick="copyRekapWA()" class="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold px-4 py-2 rounded-xl transition flex items-center justify-center gap-2 text-xs sm:text-sm shadow-sm">
+                    <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
+                    <span>Copy Rekap WA</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- 3 PIE CHART UTAMA -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
+            <!-- 1. Order Per Unit -->
+            <div class="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-slate-200/80 flex flex-col justify-between">
+                <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                    <span>🍕</span> Order Per Unit
+                </h2>
+                <div class="h-56 sm:h-60 relative flex items-center justify-center">
+                    <canvas id="unitChart"></canvas>
+                </div>
+            </div>
+
+            <!-- 2. Foto & Video vs Desain Grafis -->
+            <div class="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-slate-200/80 flex flex-col justify-between">
+                <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                    <span>🎨</span> Foto & Video vs Desain Grafis
+                </h2>
+                <div class="h-56 sm:h-60 relative flex items-center justify-center">
+                    <canvas id="kategoriChart"></canvas>
+                </div>
+            </div>
+
+            <!-- 3. Alat Dipinjam -->
+            <div class="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-slate-200/80 flex flex-col justify-between">
+                <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                    <span>📹</span> Alat Dipinjam
+                </h2>
+                <div class="h-56 sm:h-60 relative flex items-center justify-center">
+                    <canvas id="alatChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- SECTION BEBAN KERJA & STATUS PERSONEL -->
+        <div class="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200/80 space-y-5">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+                <h2 class="text-xs sm:text-sm font-extrabold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                    <span>👥</span> BEBAN KERJA & STATUS PERSONEL (REKAP BULANAN)
+                </h2>
+                <div class="inline-flex flex-wrap items-center gap-1.5 text-[11px] sm:text-xs text-slate-600 font-semibold bg-slate-100/80 px-3 py-1.5 rounded-full border border-slate-200/60 w-fit">
+                    <span class="text-emerald-700 font-bold">🟢 ≤15 Aman</span>
+                    <span class="text-slate-300">|</span>
+                    <span class="text-amber-700 font-bold">🟡 16–25 Peringatan</span>
+                    <span class="text-slate-300">|</span>
+                    <span class="text-rose-700 font-bold">🔴 >25 Overload</span>
+                </div>
+            </div>
+
+            <!-- Ringkasan Poin Beban Kerja Personel -->
+            <div id="personelStats" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3"></div>
+
+            <!-- Grafik Bar Horizontal Beban Kerja -->
+            <div class="h-60 sm:h-64 relative pt-2">
+                <canvas id="personelBarChart"></canvas>
+            </div>
+        </div>
+
+        <!-- TABEL ORDER MASUK -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
+            <div class="p-4 sm:p-5 bg-slate-900 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                <h2 class="text-base sm:text-lg font-bold flex items-center gap-2">
+                    <span>📋</span> Daftar Order Masuk
+                </h2>
+                <span class="text-[11px] sm:text-xs bg-slate-800 text-slate-300 px-3 py-1 rounded-full font-medium border border-slate-700/60 w-fit">
+                    🔐 Hak Akses Admin: leonardus.yesi@sekolahathalia.sch.id
+                </span>
+            </div>
+            
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse min-w-[640px]">
+                    <thead>
+                        <tr class="border-b border-slate-200/80 text-[11px] font-bold text-slate-400 uppercase tracking-wider bg-slate-50/70">
+                            <th class="p-3.5 sm:p-4 pl-4 sm:pl-6 w-1/4">TGL/WAKTU/UNIT</th>
+                            <th class="p-3.5 sm:p-4 w-2/5">DETAIL KEGIATAN</th>
+                            <th class="p-3.5 sm:p-4 w-1/4">PILIH PERSONEL</th>
+                            <th class="p-3.5 sm:p-4 text-center w-1/6">STATUS</th>
+                        </tr>
+                    </thead>
+                    <tbody id="orderTable" class="divide-y divide-slate-100 text-xs sm:text-sm">
+                        <tr><td colspan="4" class="text-center p-8 text-slate-400 font-medium">Memuat data orderan...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- KARTU JADWAL TIM -->
+        <div class="space-y-4">
+            <h2 class="text-xl sm:text-2xl font-bold text-slate-900 border-l-4 border-blue-600 pl-3.5">KARTU JADWAL TIM</h2>
+            <div id="scheduleCards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6"></div>
+        </div>
+
+    </div>
+
+    <!-- MODAL POP-UP: PANDUAN PENENTUAN BOBOT POIN -->
+    <div id="bobotModal" class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-3 sm:p-5 transition-all">
+        <div class="bg-white w-full max-w-2xl sm:max-w-3xl rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[90vh] animate-in fade-in zoom-in duration-200">
+            <!-- Header Modal -->
+            <div class="bg-slate-900 text-white p-4 sm:p-5 flex justify-between items-center shrink-0">
+                <div class="flex items-center gap-2.5">
+                    <span class="text-xl sm:text-2xl">📘</span>
+                    <div>
+                        <h3 class="font-bold text-base sm:text-lg leading-tight">Panduan Standar Penentuan Bobot Poin</h3>
+                        <p class="text-[11px] sm:text-xs text-slate-300 mt-0.5">4 Parameter Acuan Penilaian Beban Kerja Tim Publikasi</p>
+                    </div>
+                </div>
+                <button onclick="closeBobotModal()" class="text-slate-400 hover:text-white text-2xl font-bold px-2 py-1 rounded-lg transition">&times;</button>
+            </div>
+
+            <!-- Content Modal -->
+            <div class="p-4 sm:p-6 overflow-y-auto space-y-5 text-slate-700 text-xs sm:text-sm">
+                <!-- 4 Parameter Utama -->
+                <div class="space-y-3">
+                    <h4 class="font-extrabold text-slate-900 text-sm sm:text-base border-b border-slate-100 pb-2 flex items-center gap-2">
+                        <span>🎯</span> 4 Parameter Utama Penilaian:
+                    </h4>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80">
+                            <span class="font-bold text-blue-600 block mb-1">1. Estimasi Durasi Kerja</span>
+                            <p class="text-[11px] sm:text-xs text-slate-600 leading-relaxed">Jam kerja efektif di lapangan atau durasi pengerjaan desain (&le; 2 jam hingga seharian penuh).</p>
+                        </div>
+                        <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80">
+                            <span class="font-bold text-blue-600 block mb-1">2. Variasi & Output</span>
+                            <p class="text-[11px] sm:text-xs text-slate-600 leading-relaxed">Banyaknya variasi format (single flyer, video reels, hingga kombinasi banner + backdrop + post).</p>
+                        </div>
+                        <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80">
+                            <span class="font-bold text-blue-600 block mb-1">3. Kesiapan Teks & Aset</span>
+                            <p class="text-[11px] sm:text-xs text-slate-600 leading-relaxed">Jika materi/teks belum siap dan butuh disusun dari awal oleh tim, bobot otomatis dinaikkan +1.</p>
+                        </div>
+                        <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80">
+                            <span class="font-bold text-blue-600 block mb-1">4. Skala Event & Tim</span>
+                            <p class="text-[11px] sm:text-xs text-slate-600 leading-relaxed">Skala kegiatan (internal unit vs event sekolah) serta koordinasi tim personel tambahan.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Matriks Bobot Poin 1 - 4 -->
+                <div class="space-y-3">
+                    <h4 class="font-extrabold text-slate-900 text-sm sm:text-base border-b border-slate-100 pb-2 flex items-center gap-2">
+                        <span>📊</span> Matriks Skala Poin (1 - 4 Poin):
+                    </h4>
+                    <div class="space-y-2.5">
+                        <div class="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 bg-purple-50/70 p-3 rounded-xl border border-purple-100">
+                            <span class="font-extrabold text-purple-700 text-xs px-2.5 py-1 bg-white rounded-lg border border-purple-200 shrink-0">1 POIN</span>
+                            <div class="text-[11px] sm:text-xs leading-relaxed">
+                                <strong>Pekerjaan Rutin / Singkat (&le; 2 jam):</strong> Dokumentasi kegiatan internal singkat, 1 flyer sederhana, atau peminjaman peralatan tanpa petugas.
+                            </div>
+                        </div>
+
+                        <div class="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 bg-blue-50/70 p-3 rounded-xl border border-blue-100">
+                            <span class="font-extrabold text-blue-700 text-xs px-2.5 py-1 bg-white rounded-lg border border-blue-200 shrink-0">2 POIN</span>
+                            <div class="text-[11px] sm:text-xs leading-relaxed">
+                                <strong>Pekerjaan Standar (2 – 4 jam):</strong> Liputan event indoor (workshop/hari belajar guru), video liputan pendek, atau flyer dengan materi matang.
+                            </div>
+                        </div>
+
+                        <div class="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 bg-amber-50/70 p-3 rounded-xl border border-amber-100">
+                            <span class="font-extrabold text-amber-700 text-xs px-2.5 py-1 bg-white rounded-lg border border-amber-200 shrink-0">3 POIN</span>
+                            <div class="text-[11px] sm:text-xs leading-relaxed">
+                                <strong>Kompleksitas Menengah (4 – 6 jam):</strong> Paket multi-format (backdrop + stacking box + edit teks expo), video reels multi-slide, atau materi tanpa draf awal.
+                            </div>
+                        </div>
+
+                        <div class="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 bg-rose-50/70 p-3 rounded-xl border border-rose-100">
+                            <span class="font-extrabold text-rose-700 text-xs px-2.5 py-1 bg-white rounded-lg border border-rose-200 shrink-0">4 POIN</span>
+                            <div class="text-[11px] sm:text-xs leading-relaxed">
+                                <strong>Skala Besar / Seharian (> 6 jam):</strong> Field trip outdoor seharian (07.30 - 15.00), layout buku tahunan (yearbook), kampanye sekolah, atau video dokumenter.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer Modal -->
+            <div class="bg-slate-50 p-3.5 sm:p-4 border-t border-slate-100 flex justify-end shrink-0">
+                <button onclick="closeBobotModal()" class="w-full sm:w-auto bg-slate-900 hover:bg-slate-800 text-white font-bold px-5 py-2 rounded-xl text-xs sm:text-sm transition shadow-sm">
+                    Tutup Panduan
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL POP-UP: BUAT SUB-TUGAS / BARIS TURUNAN -->
+    <div id="subTaskModal" class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-3 sm:p-5 transition-all">
+        <div class="bg-white w-full max-w-xl rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[90vh] animate-in fade-in zoom-in duration-200">
+            <!-- Header Modal -->
+            <div class="bg-slate-900 text-white p-4 sm:p-5 flex justify-between items-center shrink-0">
+                <div class="flex items-center gap-2.5">
+                    <span class="text-xl sm:text-2xl">➕</span>
+                    <div>
+                        <h3 class="font-bold text-base sm:text-lg leading-tight">Buat Sub-Tugas / Baris Turunan</h3>
+                        <p class="text-[11px] sm:text-xs text-slate-300 mt-0.5">Pecah kegiatan utama untuk membagi beban & personel secara adil</p>
+                    </div>
+                </div>
+                <button onclick="closeSubTaskModal()" class="text-slate-400 hover:text-white text-2xl font-bold px-2 py-1 rounded-lg transition">&times;</button>
+            </div>
+
+            <!-- Content Modal -->
+            <div class="p-4 sm:p-6 overflow-y-auto space-y-4 text-slate-700 text-xs sm:text-sm">
+                <!-- Order Induk Label -->
+                <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                    <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Kegiatan Utama (Induk):</span>
+                    <span id="subTaskParentName" class="font-extrabold text-slate-900 text-sm"></span>
+                </div>
+
+                <!-- Input Nama Sub-Tugas -->
+                <div class="space-y-1.5">
+                    <label class="font-bold text-slate-800 block text-xs">Nama Sub-Tugas / Turunan:</label>
+                    <input type="text" id="subTaskKegiatanInput" placeholder="misal: Rekaman Podcast NanCeP - Editing Video" 
+                        class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm">
+                </div>
+
+                <!-- Input Jenis Pekerjaan & Bobot -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div class="space-y-1.5">
+                        <label class="font-bold text-slate-800 block text-xs">Jenis Pekerjaan:</label>
+                        <select id="subTaskJenisInput" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm">
+                            <option value="Editing Video">Editing Video / Post-Production</option>
+                            <option value="Desain Grafis">Desain Grafis (Brosur, Spanduk, dll)</option>
+                            <option value="Foto dan Video">Foto dan Video (Syuting/Liputan)</option>
+                            <option value="Layout Buku">Layout Buku / Publication</option>
+                            <option value="Lainnya">Lainnya</option>
+                        </select>
+                    </div>
+                    <div class="space-y-1.5">
+                        <label class="font-bold text-slate-800 block text-xs">Bobot Poin (1 - 4):</label>
+                        <input type="number" id="subTaskBobotInput" min="1" max="20" value="2" 
+                            class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm">
+                    </div>
+                </div>
+
+                <!-- Pilih Personel Sub-Tugas -->
+                <div class="space-y-1.5">
+                    <label class="font-bold text-slate-800 block text-xs">Pilih Personel Bertugas:</label>
+                    <div id="subTaskPetugasContainer" class="flex flex-wrap gap-1.5 pt-1"></div>
+                </div>
+
+                <!-- Detail / Catatan -->
+                <div class="space-y-1.5">
+                    <label class="font-bold text-slate-800 block text-xs">Detail Tambahan (Opsional):</label>
+                    <textarea id="subTaskDetailInput" rows="2" placeholder="Detail spesifik pengerjaan sub-tugas..." 
+                        class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm"></textarea>
+                </div>
+            </div>
+
+            <!-- Footer Modal -->
+            <div class="bg-slate-50 p-3.5 sm:p-4 border-t border-slate-100 flex justify-end gap-2 shrink-0">
+                <button onclick="closeSubTaskModal()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold px-4 py-2 rounded-xl text-xs sm:text-sm transition">
+                    Batal
+                </button>
+                <button onclick="saveSubTask()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-5 py-2 rounded-xl text-xs sm:text-sm transition shadow-sm flex items-center gap-1.5">
+                    <span>💾</span> Simpan Sub-Tugas
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxxvr3Z8pSFI4QqCUEXppPhhqIK-IbpWCTRmSQJ0srUPo_Prl1Qa6VmmAq6F2Rn8uW3dw/exec';
+        
+        // KONFIGURASI AKUN ADMIN RESMI
+        const ALLOWED_ADMIN_EMAIL = "leonardus.yesi@sekolahathalia.sch.id";
+        const ADMIN_PASSWORD = "admin123";
+
+        const TIM = ["Magang", "Dodai", "Nia", "Wahyu", "Yesi", "Indri"];
+        let allData = [];
+        
+        let unitChartObj = null;
+        let kategoriChartObj = null;
+        let personelBarChartObj = null;
+        let alatChartObj = null;
+
+        let currentParentRowId = null;
+        let selectedSubTaskPetugas = [];
+
+        // FUNGSI MODAL PANDUAN BOBOT
+        function openBobotModal() {
+            document.getElementById('bobotModal').classList.remove('hidden');
+        }
+
+        function closeBobotModal() {
+            document.getElementById('bobotModal').classList.add('hidden');
+        }
+
+        // FUNGSI MODAL SUB-TUGAS / BARIS TURUNAN
+        function openSubTaskModal(rowId) {
+            if (!checkAdminAccess()) return;
+            
+            const parent = allData.find(d => d.rowId === rowId);
+            if (!parent) return;
+            
+            currentParentRowId = rowId;
+            selectedSubTaskPetugas = [];
+            
+            document.getElementById('subTaskParentName').innerText = parent.kegiatan;
+            document.getElementById('subTaskKegiatanInput').value = parent.kegiatan + " - ";
+            document.getElementById('subTaskJenisInput').value = "Editing Video";
+            document.getElementById('subTaskBobotInput').value = 2;
+            document.getElementById('subTaskDetailInput').value = "";
+            
+            renderSubTaskPetugasButtons();
+            document.getElementById('subTaskModal').classList.remove('hidden');
+        }
+
+        function closeSubTaskModal() {
+            document.getElementById('subTaskModal').classList.add('hidden');
+        }
+
+        function renderSubTaskPetugasButtons() {
+            const container = document.getElementById('subTaskPetugasContainer');
+            container.innerHTML = TIM.map(t => {
+                const active = selectedSubTaskPetugas.some(p => p.toLowerCase() === t.toLowerCase());
+                return `
+                    <button type="button" onclick="toggleSubTaskPetugas('${t}')" 
+                        class="px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${active ? 'bg-blue-600 text-white font-bold shadow-xs' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}">
+                        ${t}
+                    </button>
+                `;
+            }).join('');
+        }
+
+        function toggleSubTaskPetugas(nama) {
+            const idx = selectedSubTaskPetugas.findIndex(p => p.toLowerCase() === nama.toLowerCase());
+            if (idx > -1) selectedSubTaskPetugas.splice(idx, 1);
+            else selectedSubTaskPetugas.push(nama);
+            renderSubTaskPetugasButtons();
+        }
+
+        async function saveSubTask() {
+            const kegiatanBaru = document.getElementById('subTaskKegiatanInput').value.trim();
+            if (!kegiatanBaru) {
+                alert("⚠️ Nama sub-tugas tidak boleh kosong.");
+                return;
+            }
+            
+            const jenisKerja = document.getElementById('subTaskJenisInput').value;
+            const bobot = parseFloat(document.getElementById('subTaskBobotInput').value) || 1;
+            const detail = document.getElementById('subTaskDetailInput').value.trim();
+            
+            closeSubTaskModal();
+            document.body.style.cursor = 'wait';
+            
+            try {
+                const payload = {
+                    action: "createSubTask",
+                    parentRowId: currentParentRowId,
+                    kegiatan: kegiatanBaru,
+                    jenisKerja: jenisKerja,
+                    bobot: bobot,
+                    detail: detail,
+                    petugasList: selectedSubTaskPetugas,
+                    status: "In Progress"
+                };
+
+                await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                alert("✅ Sub-Tugas berhasil dibuat! Memperbarui data dashboard...");
+                await fetchData();
+            } catch (error) {
+                console.error("Gagal membuat sub-tugas:", error);
+                alert("⚠️ Terjadi kesalahan saat membuat sub-tugas.");
+            } finally {
+                document.body.style.cursor = 'default';
+            }
+        }
+
+        // FUNGSI VERIFIKASI AKUN ADMIN (SEKALI LOGIN)
+        function checkAdminAccess() {
+            let loggedInEmail = sessionStorage.getItem('adminEmail');
+            
+            if (loggedInEmail && loggedInEmail.toLowerCase() === ALLOWED_ADMIN_EMAIL.toLowerCase()) {
+                return true;
+            }
+
+            const emailInput = prompt("📧 MASUKKAN EMAIL ADMIN AKUN:");
+            if (emailInput === null) return false;
+
+            if (emailInput.trim().toLowerCase() !== ALLOWED_ADMIN_EMAIL.toLowerCase()) {
+                alert(`❌ Akses Ditolak! Email '${emailInput}' tidak memiliki hak akses Admin.`);
+                return false;
+            }
+
+            const passInput = prompt("🔐 MASUKKAN PASSWORD ADMIN:");
+            if (passInput === null) return false;
+
+            if (passInput !== ADMIN_PASSWORD) {
+                alert("❌ Password salah! Akses ditolak.");
+                return false;
+            }
+
+            sessionStorage.setItem('adminEmail', emailInput.trim().toLowerCase());
+            updateAdminUI();
+            alert("✅ Login Admin Berhasil! Anda bebas melakukan pengeditan penugasan & poin selama sesi browser ini.");
+            return true;
+        }
+
+        function logoutAdmin() {
+            sessionStorage.removeItem('adminEmail');
+            updateAdminUI();
+            alert("🔒 Anda telah logout dari mode Admin.");
+        }
+
+        function updateAdminUI() {
+            const btnContainer = document.getElementById('adminAuthBtnContainer');
+            const loggedInEmail = sessionStorage.getItem('adminEmail');
+            
+            if (loggedInEmail && loggedInEmail.toLowerCase() === ALLOWED_ADMIN_EMAIL.toLowerCase()) {
+                btnContainer.innerHTML = `
+                    <div class="w-full sm:w-auto bg-emerald-50 border border-emerald-200 text-emerald-800 font-bold px-3 py-1.5 rounded-xl text-xs flex items-center justify-between sm:justify-start gap-2 shadow-sm">
+                        <span class="truncate">🟢 Admin: ${loggedInEmail}</span>
+                        <button onclick="logoutAdmin()" class="underline text-rose-600 hover:text-rose-800 font-extrabold shrink-0">Logout</button>
+                    </div>
+                `;
+            } else {
+                btnContainer.innerHTML = `
+                    <button id="adminAuthBtn" onclick="checkAdminAccess()" class="w-full sm:w-auto bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300/80 font-bold px-3.5 py-2 rounded-xl text-xs sm:text-sm transition flex items-center justify-center gap-1.5 shadow-sm">
+                        🔒 Login Admin
+                    </button>
+                `;
+            }
+        }
+
+        // SKALA AMBANG BATAS BULANAN TERBARU: <=15 Aman, 16-25 Peringatan, >25 Overload
+        function getWorkloadColor(points) {
+            if (points <= 15) return '#10b981';
+            if (points <= 25) return '#f59e0b';
+            return '#ef4444';
+        }
+
+        function getWorkloadBadgeStyle(points) {
+            if (points <= 15) return 'bg-emerald-50 text-emerald-700 border-emerald-200/80';
+            if (points <= 25) return 'bg-amber-50 text-amber-700 border-amber-200/80';
+            return 'bg-rose-50 text-rose-700 border-rose-200/80';
+        }
+
+        function isPeminjamanAlat(item) {
+            const jenis = (item.jenisKerja || '').toLowerCase();
+            const kegiatan = (item.kegiatan || '').toLowerCase();
+            const alat = (item.alat || '').trim();
+            const jamAmbil = (item.jamAmbil || '').trim();
+
+            if (jenis.includes("peminjaman") || jenis.includes("pinjam alat")) return true;
+            if (kegiatan.includes("peminjaman") || kegiatan.includes("alat saja")) return true;
+            if (alat !== "" && alat !== "-" && (jenis === "-" || jenis === "" || jenis.includes("alat"))) return true;
+            if (jamAmbil !== "" && jamAmbil !== "-" && (jenis === "-" || jenis === "")) return true;
+
+            return false;
+        }
+
+        async function fetchData() {
+            try {
+                const res = await fetch(SCRIPT_URL);
+                allData = await res.json();
+                
+                if (allData.status === "error") {
+                    throw new Error(allData.message);
+                }
+
+                localStorage.setItem('penugasanDataCache', JSON.stringify(allData));
+                initMonthFilter();
+                updateAdminUI();
+                renderDashboard();
+            } catch (err) {
+                console.warn("Gagal fetch data baru, mencoba cache local...", err);
+                const cached = localStorage.getItem('penugasanDataCache');
+                if (cached) {
+                    allData = JSON.parse(cached);
+                    initMonthFilter();
+                    updateAdminUI();
+                    renderDashboard();
+                } else {
+                    document.getElementById('orderTable').innerHTML = `<tr><td colspan="4" class="text-center p-8 text-red-500 font-semibold">Gagal terhubung ke Google Sheets.</td></tr>`;
+                }
+            }
+        }
+
+        function initMonthFilter() {
+            const months = [...new Set(allData.map(item => item.bulanTahun))].filter(b => b && b !== "Tanpa Tanggal");
+            const select = document.getElementById('monthFilter');
+            
+            const currentSelected = select.value;
+            select.innerHTML = '';
+            
+            months.forEach(m => {
+                const opt = document.createElement('option');
+                opt.value = m;
+                opt.textContent = m;
+                select.appendChild(opt);
+            });
+
+            if (currentSelected && months.includes(currentSelected)) {
+                select.value = currentSelected;
+            } else if (months.length > 0) {
+                select.value = months[months.length - 1]; 
+            }
+        }
+
+        function renderDashboard() {
+            const selectedMonth = document.getElementById('monthFilter').value;
+            const filteredData = allData.filter(item => item.bulanTahun === selectedMonth);
+
+            renderUnitChart(filteredData);
+            renderKategoriChart(filteredData);
+            renderPersonelBarChart(filteredData);
+            renderAlatChart(filteredData);
+            renderPersonelStats(filteredData);
+            renderTable(filteredData);
+            renderScheduleCards(filteredData);
+        }
+
+        function renderUnitChart(data) {
+            const unitCounts = {};
+            data.forEach(d => {
+                const u = d.unit || 'Lainnya';
+                unitCounts[u] = (unitCounts[u] || 0) + 1;
+            });
+
+            const ctx = document.getElementById('unitChart').getContext('2d');
+            if (unitChartObj) unitChartObj.destroy();
+
+            unitChartObj = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: Object.keys(unitCounts),
+                    datasets: [{
+                        data: Object.values(unitCounts),
+                        backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#64748b']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10, family: 'Inter' } } }
+                    }
+                }
+            });
+        }
+
+        function renderKategoriChart(data) {
+            const labelFotoVideo = 'Foto & Video';
+            const labelDesain = 'Desain Grafis';
+
+            const kategoriCounts = {
+                [labelFotoVideo]: 0,
+                [labelDesain]: 0
+            };
+
+            data.forEach(d => {
+                if (d.status === 'Canceled') return;
+
+                const jenisVal = (d.jenisKerja || '').trim();
+
+                if (jenisVal.includes("Foto dan Video") || (jenisVal.toLowerCase().includes("foto") && !isPeminjamanAlat(d))) {
+                    kategoriCounts[labelFotoVideo]++;
+                } else if (jenisVal.includes("Desain Grafis") || jenisVal.toLowerCase().includes("desain") || jenisVal.toLowerCase().includes("layout")) {
+                    kategoriCounts[labelDesain]++;
+                }
+            });
+
+            const ctx = document.getElementById('kategoriChart').getContext('2d');
+            if (kategoriChartObj) kategoriChartObj.destroy();
+
+            kategoriChartObj = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: [labelFotoVideo, labelDesain],
+                    datasets: [{
+                        data: [kategoriCounts[labelFotoVideo], kategoriCounts[labelDesain]],
+                        backgroundColor: ['#3b82f6', '#8b5cf6']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10, family: 'Inter' } } }
+                    }
+                }
+            });
+        }
+
+        function renderPersonelBarChart(data) {
+            const points = {};
+            TIM.forEach(t => points[t] = 0);
+
+            data.forEach(d => {
+                if (d.status !== 'Canceled' && !isPeminjamanAlat(d)) {
+                    d.petugas.forEach(p => {
+                        const matched = TIM.find(t => t.toLowerCase() === p.toLowerCase());
+                        if (matched) points[matched] += (d.bobot || 1);
+                    });
+                }
+            });
+
+            const ctx = document.getElementById('personelBarChart').getContext('2d');
+            if (personelBarChartObj) personelBarChartObj.destroy();
+
+            const barColors = TIM.map(t => getWorkloadColor(points[t]));
+
+            personelBarChartObj = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: TIM,
+                    datasets: [{
+                        label: 'Total Poin Beban Kerja',
+                        data: TIM.map(t => points[t]),
+                        backgroundColor: barColors,
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { beginAtZero: true, ticks: { precision: 0, font: { family: 'Inter' } } },
+                        y: { ticks: { font: { family: 'Inter', weight: '600' } } }
+                    }
+                }
+            });
+        }
+
+        function renderAlatChart(data) {
+            const alatCounts = {};
+            data.forEach(d => {
+                if (d.status !== 'Canceled' && d.alat && d.alat !== '-' && d.alat.trim() !== '') {
+                    const items = d.alat.split(',').map(x => x.trim()).filter(x => x !== '' && x !== '-');
+                    items.forEach(a => {
+                        alatCounts[a] = (alatCounts[a] || 0) + 1;
+                    });
+                }
+            });
+
+            const ctx = document.getElementById('alatChart').getContext('2d');
+            if (alatChartObj) alatChartObj.destroy();
+
+            const labels = Object.keys(alatCounts);
+            const values = Object.values(alatCounts);
+
+            if (labels.length === 0) {
+                alatChartObj = new Chart(ctx, {
+                    type: 'pie',
+                    data: {
+                        labels: ['Tidak Ada Peminjaman Alat'],
+                        datasets: [{ data: [1], backgroundColor: ['#e2e8f0'] }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10, family: 'Inter' } } } }
+                    }
+                });
+                return;
+            }
+
+            alatChartObj = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: values,
+                        backgroundColor: ['#f59e0b', '#ec4899', '#8b5cf6', '#3b82f6', '#10b981', '#06b6d4', '#64748b', '#ef4444']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10, family: 'Inter' } } }
+                    }
+                }
+            });
+        }
+
+        function renderPersonelStats(data) {
+            const points = {};
+            TIM.forEach(t => points[t] = 0);
+
+            data.forEach(d => {
+                if (d.status !== 'Canceled' && !isPeminjamanAlat(d)) {
+                    d.petugas.forEach(p => {
+                        const matched = TIM.find(t => t.toLowerCase() === p.toLowerCase());
+                        if (matched) points[matched] += (d.bobot || 1);
+                    });
+                }
+            });
+
+            const container = document.getElementById('personelStats');
+            container.innerHTML = TIM.map(t => {
+                const pt = points[t];
+                const badgeStyle = getWorkloadBadgeStyle(pt);
+                return `
+                    <div class="bg-slate-50 p-2.5 sm:p-3 rounded-xl border border-slate-200/70 flex items-center justify-between gap-1 shadow-2xs">
+                        <span class="font-bold text-slate-800 text-[11px] sm:text-xs tracking-tight">${t.toUpperCase()}</span>
+                        <span class="font-extrabold px-2 py-0.5 rounded-lg text-[10px] sm:text-xs border shrink-0 ${badgeStyle}">${pt} POIN</span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderTable(data) {
+            const tbody = document.getElementById('orderTable');
+            if (data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" class="text-center p-8 text-slate-400 font-medium">Tidak ada orderan pada periode ini.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = data.map(item => {
+                const isAlat = isPeminjamanAlat(item);
+                
+                return `
+                <tr class="hover:bg-slate-50/80 transition border-b border-slate-100 last:border-b-0">
+                    <td class="p-3.5 sm:p-4 pl-4 sm:pl-6 align-top">
+                        <div class="font-bold text-blue-600 text-xs sm:text-sm">${item.tglFormatted}</div>
+                        <div class="text-[11px] sm:text-xs text-slate-500 font-medium mt-0.5 flex items-center gap-1 flex-wrap">
+                            <span>⏰ ${item.jam || item.jamAmbil || '-'}</span>
+                            ${item.durasi ? '<span class="text-slate-300">|</span> <span>⌛ ' + item.durasi + '</span>' : ''}
+                        </div>
+                        <span class="inline-block mt-1.5 px-2 py-0.5 bg-slate-100 text-slate-700 font-bold text-[10px] rounded-md border border-slate-200 uppercase">
+                            ${item.unit}
+                        </span>
+                    </td>
+                    <td class="p-3.5 sm:p-4 align-top space-y-1.5">
+                        <div class="font-bold text-slate-900 text-xs sm:text-base leading-snug flex items-center gap-2 flex-wrap">
+                            <span>${item.kegiatan}</span>
+                            
+                            <button onclick="editBobotAdmin(${item.rowId}, ${item.bobot})" 
+                                title="Klik untuk ubah poin (Khusus Admin)"
+                                class="bg-purple-100/80 hover:bg-purple-200 active:bg-purple-300 text-purple-800 text-[10px] font-bold px-2 py-0.5 rounded border border-purple-200 transition flex items-center gap-1">
+                                ⚙️ ${item.bobot} POIN
+                            </button>
+
+                            <button onclick="openSubTaskModal(${item.rowId})" 
+                                title="Pecah menjadi Sub-Tugas / Baris Turunan (Khusus Admin)"
+                                class="bg-blue-100/80 hover:bg-blue-200 active:bg-blue-300 text-blue-800 text-[10px] font-bold px-2 py-0.5 rounded border border-blue-200 transition flex items-center gap-1">
+                                ➕ Sub-Tugas
+                            </button>
+
+                            ${isAlat ? '<span class="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded border border-amber-200">HANYA ALAT SAJA</span>' : ''}
+                        </div>
+                        <div class="text-[11px] sm:text-xs text-slate-500 font-medium">PIC: <span class="text-slate-700 font-semibold">${item.pic}</span></div>
+                        
+                        <button onclick="toggleDetail('${item.rowId}')" class="text-[11px] sm:text-xs text-blue-600 hover:text-blue-800 font-bold inline-flex items-center gap-1 pt-1">
+                            <span>LIHAT DETAIL</span>
+                            <span class="text-[9px]">▼</span>
+                        </button>
+                        
+                        <div id="detail-${item.rowId}" class="hidden mt-2 p-3 bg-slate-50 rounded-xl text-[11px] sm:text-xs text-slate-600 border border-slate-200 space-y-1 leading-relaxed">
+                            <div><strong class="text-slate-800">Jenis Pekerjaan:</strong> ${item.jenisKerja}</div>
+                            <div><strong class="text-slate-800">Detail:</strong> ${item.detail}</div>
+                            <div><strong class="text-slate-800">Peralatan:</strong> ${item.alat}</div>
+                            <div><strong class="text-slate-800">Jam Pinjam/Kembali:</strong> ${item.jamAmbil} / ${item.jamKembali}</div>
+                        </div>
+                    </td>
+                    <td class="p-3.5 sm:p-4 align-top">
+                        ${isAlat ? `
+                            <div class="flex items-center gap-1.5 text-[11px] sm:text-xs text-amber-800 bg-amber-50/80 border border-amber-200/80 px-2.5 py-1.5 rounded-xl font-medium">
+                                <span>🔧</span>
+                                <span>Hanya peminjaman alat</span>
+                            </div>
+                        ` : `
+                            <div class="flex flex-wrap gap-1 sm:gap-1.5">
+                                ${TIM.map(t => {
+                                    const active = item.petugas.some(p => p.toLowerCase() === t.toLowerCase());
+                                    return `
+                                        <button onclick="togglePetugas(${item.rowId}, '${t}')" 
+                                            class="px-2 sm:px-2.5 py-1 text-[11px] sm:text-xs font-semibold rounded-lg transition-all ${active ? 'bg-blue-600 text-white shadow-xs font-bold' : 'bg-slate-100 hover:bg-slate-200 text-slate-600'}">
+                                            ${t}
+                                        </button>
+                                    `;
+                                }).join('')}
+                            </div>
+                        `}
+                    </td>
+                    <td class="p-3.5 sm:p-4 align-top text-center">
+                        <select onchange="updateStatus(${item.rowId}, this.value)" 
+                            class="text-[11px] sm:text-xs font-bold px-2.5 py-1.5 rounded-xl border focus:outline-none transition shadow-2xs ${getStatusStyle(item.status)}">
+                            <option value="In Progress" ${item.status === 'In Progress' ? 'selected' : ''}>⏳ In Progress</option>
+                            <option value="Done" ${item.status === 'Done' ? 'selected' : ''}>✅ Done</option>
+                            <option value="Canceled" ${item.status === 'Canceled' ? 'selected' : ''}>❌ Canceled</option>
+                        </select>
+                    </td>
+                </tr>
+            `}).join('');
+        }
+
+        function renderScheduleCards(data) {
+            const container = document.getElementById('scheduleCards');
+            
+            container.innerHTML = TIM.map(t => {
+                const tasks = data.filter(d => !isPeminjamanAlat(d) && d.status !== 'Canceled' && d.petugas.some(p => p.toLowerCase() === t.toLowerCase()));
+                
+                return `
+                    <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col justify-between">
+                        <div>
+                            <div class="flex justify-between items-center pb-2.5 mb-3 border-b border-slate-100">
+                                <h3 class="font-extrabold text-slate-900 text-base sm:text-lg">${t}</h3>
+                                <span class="bg-blue-50 text-blue-700 font-bold px-2.5 py-0.5 rounded-full text-xs border border-blue-100">${tasks.length} Order</span>
+                            </div>
+                            <div class="space-y-2.5">
+                                ${tasks.length === 0 ? '<p class="text-xs text-slate-400 italic py-2">Tidak ada penugasan.</p>' : tasks.map(tk => `
+                                    <div class="p-2.5 bg-slate-50/90 rounded-xl border border-slate-200/70 text-xs space-y-0.5">
+                                        <div class="font-bold text-blue-600 text-[11px]">${tk.tglFormatted}</div>
+                                        <div class="font-bold text-slate-800 leading-snug">${tk.kegiatan}</div>
+                                        <div class="text-slate-500 text-[10px] font-medium">${tk.unit} | PIC: ${tk.pic}</div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function getStatusStyle(status) {
+            switch(status) {
+                case 'Done': return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+                case 'Canceled': return 'bg-rose-50 text-rose-700 border-rose-200';
+                default: return 'bg-amber-50 text-amber-700 border-amber-200';
+            }
+        }
+
+        // PENUGASAN PERSONEL DENGAN OTENTIKASI EMAIL & SESI LOGIN
+        async function togglePetugas(rowId, nama) {
+            if (!checkAdminAccess()) return;
+
+            const idx = allData.findIndex(d => d.rowId === rowId);
+            if (idx === -1) return;
+
+            let list = [...allData[idx].petugas];
+            const pIdx = list.findIndex(p => p.toLowerCase() === nama.toLowerCase());
+
+            if (pIdx > -1) list.splice(pIdx, 1);
+            else list.push(nama);
+
+            allData[idx].petugas = list;
+            renderDashboard();
+
+            await syncData(rowId, list, allData[idx].status, allData[idx].bobot);
+        }
+
+        // EDIT BOBOT POIN DENGAN OTENTIKASI EMAIL & SESI LOGIN
+        async function editBobotAdmin(rowId, bobotSaatIni) {
+            if (!checkAdminAccess()) return;
+
+            const inputBaru = prompt(`✏️ Ubah Poin Bobot Pekerjaan (Misal: 1-4 untuk tugas harian, atau 16+ untuk event multi-day):`, bobotSaatIni);
+            if (inputBaru === null) return;
+
+            const val = parseFloat(inputBaru);
+            if (isNaN(val) || val <= 0) {
+                alert("⚠️ Masukkan angka poin yang valid.");
+                return;
+            }
+
+            const idx = allData.findIndex(d => d.rowId === rowId);
+            if (idx !== -1) {
+                allData[idx].bobot = val;
+                renderDashboard();
+                await syncData(rowId, allData[idx].petugas, allData[idx].status, val);
+            }
+        }
+
+        // UBAH STATUS PENUGASAN DENGAN OTENTIKASI EMAIL & SESI LOGIN
+        async function updateStatus(rowId, statusBaru) {
+            if (!checkAdminAccess()) return;
+
+            const idx = allData.findIndex(d => d.rowId === rowId);
+            if (idx === -1) return;
+
+            allData[idx].status = statusBaru;
+            renderDashboard();
+
+            await syncData(rowId, allData[idx].petugas, statusBaru, allData[idx].bobot);
+        }
+
+        async function syncData(rowId, petugasList, status, bobot) {
+            try {
+                document.body.style.cursor = 'wait';
+                await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ rowId, petugasList, status, bobot })
+                });
+                document.body.style.cursor = 'default';
+            } catch (error) {
+                console.error("Gagal sinkronisasi data:", error);
+                document.body.style.cursor = 'default';
+            }
+        }
+
+        function copyRekapWA() {
+            const selectedMonth = document.getElementById('monthFilter').value;
+            const filteredData = allData.filter(item => item.bulanTahun === selectedMonth && item.status !== 'Canceled');
+
+            let text = `*REKAP PENUGASAN TIM PUBLIKASI - ${selectedMonth.toUpperCase()}*\n\n`;
+
+            TIM.forEach(t => {
+                const tasks = filteredData.filter(d => !isPeminjamanAlat(d) && d.petugas.some(p => p.toLowerCase() === t.toLowerCase()));
+                text += `*${t.toUpperCase()}* (${tasks.length} order):\n`;
+                if (tasks.length === 0) {
+                    text += `- Nihil\n`;
+                } else {
+                    tasks.forEach(tk => {
+                        text += `- ${tk.tglFormatted}: ${tk.kegiatan} (${tk.unit})\n`;
+                    });
+                }
+                text += `\n`;
+            });
+
+            navigator.clipboard.writeText(text).then(() => {
+                alert("Teks rekap WhatsApp berhasil disalin ke clipboard!");
+            });
+        }
+
+        function toggleDetail(id) { 
+            document.getElementById(`detail-${id}`).classList.toggle('hidden'); 
+        }
+
+        fetchData();
+    </script>
+</body>
+</html>
