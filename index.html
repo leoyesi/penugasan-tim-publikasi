@@ -753,25 +753,25 @@
         }
 
         // EDIT BOBOT POIN DENGAN OTENTIKASI EMAIL & SESI LOGIN
-        async function editBobotAdmin(rowId, bobotSaatIni) {
-            if (!checkAdminAccess()) return;
+async function editBobotAdmin(rowId, bobotSaatIni) {
+    if (!checkAdminAccess()) return;
 
-            const inputBaru = prompt(`✏️ Ubah Poin Bobot Pekerjaan (Angka 1 - 4):`, bobotSaatIni);
-            if (inputBaru === null) return;
+    const inputBaru = prompt(`✏️ Ubah Poin Bobot Pekerjaan (Misal: 1-4 untuk tugas harian, atau 16+ untuk event multi-day):`, bobotSaatIni);
+    if (inputBaru === null) return;
 
-            const val = parseFloat(inputBaru);
-            if (isNaN(val) || val <= 0) {
-                alert("⚠️ Masukkan angka poin yang valid.");
-                return;
-            }
+    const val = parseFloat(inputBaru);
+    if (isNaN(val) || val <= 0) {
+        alert("⚠️ Masukkan angka poin yang valid.");
+        return;
+    }
 
-            const idx = allData.findIndex(d => d.rowId === rowId);
-            if (idx !== -1) {
-                allData[idx].bobot = val;
-                renderDashboard();
-                await syncData(rowId, allData[idx].petugas, allData[idx].status, val);
-            }
-        }
+    const idx = allData.findIndex(d => d.rowId === rowId);
+    if (idx !== -1) {
+        allData[idx].bobot = val;
+        renderDashboard();
+        await syncData(rowId, allData[idx].petugas, allData[idx].status, val);
+    }
+}
 
         // UBAH STATUS PENUGASAN DENGAN OTENTIKASI EMAIL & SESI LOGIN
         async function updateStatus(rowId, statusBaru) {
