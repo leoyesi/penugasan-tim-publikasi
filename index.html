@@ -42,7 +42,7 @@
             <p class="text-xs sm:text-sm text-slate-500 font-medium max-w-xl mx-auto">Monitoring Workload Analysis (WOLA), efisiensi jam kerja murni, & headcount planning real-time</p>
         </header>
 
-        <!-- TOOLBAR: FILTER PERIODE, LOGIN ADMIN, PANDUAN BOBOT, & REKAP WA -->
+        <!-- TOOLBAR: FILTER PERIODE, LOGIN ADMIN, ORDER MENDADAK, PANDUAN BOBOT, & REKAP WA -->
         <div class="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-slate-200/80 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 transition-all">
             <!-- Filter Periode -->
             <div class="flex items-center gap-3 bg-slate-50 p-1.5 sm:p-2 rounded-xl border border-slate-200/70 w-full md:w-auto">
@@ -62,6 +62,11 @@
                         🔒 Login Admin
                     </button>
                 </div>
+
+                <!-- TOMBOL TAMBAH ORDER MENDADAK -->
+                <button onclick="openNewOrderModal()" class="w-full sm:w-auto bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold px-3.5 py-2 rounded-xl transition flex items-center justify-center gap-2 text-xs sm:text-sm shadow-sm">
+                    <span>⚡</span> + Order Mendadak
+                </button>
 
                 <!-- TOMBOL PANDUAN BOBOT POIN -->
                 <button onclick="openBobotModal()" class="w-full sm:w-auto bg-purple-50 hover:bg-purple-100 active:bg-purple-200 text-purple-700 border border-purple-200/80 font-bold px-3.5 py-2 rounded-xl transition flex items-center justify-center gap-2 text-xs sm:text-sm shadow-sm">
@@ -189,45 +194,168 @@
 
     </div>
 
+    <!-- MODAL POP-UP: TAMBAH ORDER MENDADAK (AD-HOC) -->
+    <div id="newOrderModal" class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-3 sm:p-5 transition-all">
+        <div class="bg-white w-full max-w-xl rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[90vh] animate-in fade-in zoom-in duration-200">
+            <div class="bg-slate-900 text-white p-4 sm:p-5 flex justify-between items-center shrink-0">
+                <div class="flex items-center gap-2.5">
+                    <span class="text-xl sm:text-2xl">⚡</span>
+                    <div>
+                        <h3 class="font-bold text-base sm:text-lg leading-tight">Tambah Order Mendadak (Ad-Hoc)</h3>
+                        <p class="text-[11px] sm:text-xs text-slate-300 mt-0.5">Catat penugasan interupsi/mendadak agar estimasi beban kerja WOLA tetap akurat</p>
+                    </div>
+                </div>
+                <button onclick="closeNewOrderModal()" class="text-slate-400 hover:text-white text-2xl font-bold px-2 py-1 rounded-lg transition">&times;</button>
+            </div>
+            <div class="p-4 sm:p-6 overflow-y-auto space-y-4 text-slate-700 text-xs sm:text-sm">
+                
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div class="space-y-1.5">
+                        <label class="font-bold text-slate-800 block text-xs">Tanggal Penugasan:</label>
+                        <input type="date" id="newOrderTglInput" 
+                            class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm">
+                    </div>
+                    <div class="space-y-1.5">
+                        <label class="font-bold text-slate-800 block text-xs">Unit Pemohon:</label>
+                        <input type="text" id="newOrderUnitInput" placeholder="misal: SD, SMP, Marketing, Yayasan..." 
+                            class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm">
+                    </div>
+                </div>
+
+                <div class="space-y-1.5">
+                    <label class="font-bold text-slate-800 block text-xs">Nama Kegiatan / Order Mendadak:</label>
+                    <input type="text" id="newOrderKegiatanInput" placeholder="misal: Desain Spanduk Mendadak Open House" 
+                        class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm">
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div class="space-y-1.5">
+                        <label class="font-bold text-slate-800 block text-xs">PIC Pemohon:</label>
+                        <input type="text" id="newOrderPicInput" placeholder="misal: Pak Andi, Bu Maria..." 
+                            class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm">
+                    </div>
+                    <div class="space-y-1.5">
+                        <label class="font-bold text-slate-800 block text-xs">Jenis Pekerjaan:</label>
+                        <select id="newOrderJenisInput" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm">
+                            <option value="Desain Grafis">Desain Grafis (Flyer, Spanduk, Post)</option>
+                            <option value="Foto dan Video">Foto dan Video (Liputan/Dokumentasi)</option>
+                            <option value="Editing Video">Editing Video / Post-Production</option>
+                            <option value="Layout Buku">Layout Buku / Publication</option>
+                            <option value="Lainnya">Lainnya</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="space-y-1.5">
+                    <label class="font-bold text-slate-800 block text-xs">Bobot Poin WOLA (1 Poin = 2 Jam Murni):</label>
+                    <input type="number" id="newOrderBobotInput" min="0.5" step="0.5" max="50" value="1" 
+                        class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm">
+                </div>
+
+                <div class="space-y-1.5">
+                    <label class="font-bold text-slate-800 block text-xs">Pilih Personel Bertugas:</label>
+                    <div id="newOrderPetugasContainer" class="flex flex-wrap gap-1.5 pt-1"></div>
+                </div>
+
+                <div class="space-y-1.5">
+                    <label class="font-bold text-slate-800 block text-xs">Detail / Catatan Tambahan (Opsional):</label>
+                    <textarea id="newOrderDetailInput" rows="2" placeholder="Catatan spesifik mengenai order mendadak ini..." 
+                        class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm"></textarea>
+                </div>
+            </div>
+            <div class="bg-slate-50 p-3.5 sm:p-4 border-t border-slate-100 flex justify-end gap-2 shrink-0">
+                <button onclick="closeNewOrderModal()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold px-4 py-2 rounded-xl text-xs sm:text-sm transition">
+                    Batal
+                </button>
+                <button onclick="saveNewOrder()" class="bg-amber-600 hover:bg-amber-700 text-white font-bold px-5 py-2 rounded-xl text-xs sm:text-sm transition shadow-sm flex items-center gap-1.5">
+                    <span>⚡</span> Simpan Order Mendadak
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- MODAL POP-UP: PANDUAN PENENTUAN BOBOT POIN & PRINSIP WOLA -->
     <div id="bobotModal" class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-3 sm:p-5 transition-all">
-        <div class="bg-white w-full max-w-2xl sm:max-w-3xl rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[90vh] animate-in fade-in zoom-in duration-200">
+        <div class="bg-white w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[90vh] animate-in fade-in zoom-in duration-200">
             <div class="bg-slate-900 text-white p-4 sm:p-5 flex justify-between items-center shrink-0">
                 <div class="flex items-center gap-2.5">
                     <span class="text-xl sm:text-2xl">📘</span>
                     <div>
-                        <h3 class="font-bold text-base sm:text-lg leading-tight">Panduan Bobot Poin & Prinsip Workload Analysis (WOLA)</h3>
-                        <p class="text-[11px] sm:text-xs text-slate-300 mt-0.5">4 Parameter Acuan & Metodologi WOLA Beban Kerja Tim Publikasi</p>
+                        <h3 class="font-bold text-base sm:text-lg leading-tight">Panduan Bobot Poin & Metodologi Workload Analysis (WOLA)</h3>
+                        <p class="text-[11px] sm:text-xs text-slate-300 mt-0.5">Penilaian berbasis Jam Kerja Efektif Murni, Pengerjaan Paralel, & Project Breakdown</p>
                     </div>
                 </div>
                 <button onclick="closeBobotModal()" class="text-slate-400 hover:text-white text-2xl font-bold px-2 py-1 rounded-lg transition">&times;</button>
             </div>
+            
             <div class="p-4 sm:p-6 overflow-y-auto space-y-5 text-slate-700 text-xs sm:text-sm">
-                <!-- 4 Parameter Utama -->
-                <div class="space-y-3">
-                    <h4 class="font-extrabold text-slate-900 text-sm sm:text-base border-b border-slate-100 pb-2 flex items-center gap-2">
-                        <span>🎯</span> 4 Parameter Utama Penilaian:
+                
+                <!-- 1. PRINSIP UTAMA RASIO POIN WOLA -->
+                <div class="bg-blue-50/80 p-4 rounded-xl border border-blue-200/80 space-y-2">
+                    <h4 class="font-extrabold text-blue-900 text-sm flex items-center gap-2">
+                        <span>🎯</span> 1. Standar Konversi Poin WOLA:
                     </h4>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80">
-                            <span class="font-bold text-blue-600 block mb-1">1. Estimasi Durasi Kerja</span>
-                            <p class="text-[11px] sm:text-xs text-slate-600 leading-relaxed">Jam kerja efektif di lapangan atau durasi pengerjaan desain (&le; 2 jam hingga seharian penuh).</p>
+                    <p class="text-xs text-blue-800 leading-relaxed">
+                        <strong>1 POIN WOLA = 2 JAM KERJA EFEKTIF MURNI</strong>. Tidak ada batasan maksimal 4 poin. Bobot poin fleksibel mengikuti akumulasi waktu riil yang benar-benar dialokasikan desainer/personel.
+                    </p>
+                </div>
+
+                <!-- 2. KLASIFIKASI PEKERJAAN & PENANGANAN PROYEK PANJANG -->
+                <div class="space-y-3">
+                    <h4 class="font-extrabold text-slate-900 text-sm sm:text-base border-b border-slate-200 pb-2 flex items-center gap-2">
+                        <span>📚</span> 2. Proyek Panjang & Multi-Hari vs Tugas Rutin Singkat
+                    </h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80 space-y-1.5">
+                            <span class="font-bold text-slate-900 block text-xs">⚡ Tugas Rutin / Durasi Pasti (Tanpa Breakdown)</span>
+                            <p class="text-[11px] text-slate-600 leading-relaxed">
+                                Pekerjaan tunggal dengan waktu pasti (&le;6 jam, contoh: Dokumentasi 2 Jam = 1 Poin, Design Poster Simple = 1.5 Poin). Langsung di-input 1 baris tanpa perlu di-breakdown.
+                            </p>
                         </div>
-                        <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80">
-                            <span class="font-bold text-blue-600 block mb-1">2. Variasi & Output</span>
-                            <p class="text-[11px] sm:text-xs text-slate-600 leading-relaxed">Banyaknya variasi format (single flyer, video reels, hingga kombinasi banner + backdrop + post).</p>
-                        </div>
-                        <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80">
-                            <span class="font-bold text-blue-600 block mb-1">3. Kesiapan Teks & Aset</span>
-                            <p class="text-[11px] sm:text-xs text-slate-600 leading-relaxed">Jika materi/teks belum siap dan butuh disusun dari awal oleh tim, bobot otomatis dinaikkan +1.</p>
-                        </div>
-                        <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80">
-                            <span class="font-bold text-blue-600 block mb-1">4. Skala Event & Tim</span>
-                            <p class="text-[11px] sm:text-xs text-slate-600 leading-relaxed">Skala kegiatan (internal unit vs event sekolah) serta koordinasi tim personel tambahan.</p>
+                        <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80 space-y-1.5">
+                            <span class="font-bold text-slate-900 block text-xs">📖 Proyek Kompleks & Multi-Hari (Layout Buku, Video Profil)</span>
+                            <p class="text-[11px] text-slate-600 leading-relaxed">
+                                Dihitung berdasarkan <strong>total akumulasi jam kerja efektif</strong> (jumlah halaman, kompleksitas, revisi). Gunakan fitur <code>➕ Sub-Tugas</code> untuk memecah per milestone (misal: Draf DUMMY, Layout Isi, Final Proofing).
+                            </p>
                         </div>
                     </div>
                 </div>
+
+                <!-- 3. PENGERJAAN PARALEL & INTERUPSI WORKLOAD -->
+                <div class="space-y-3">
+                    <h4 class="font-extrabold text-slate-900 text-sm sm:text-base border-b border-slate-200 pb-2 flex items-center gap-2">
+                        <span>🔀</span> 3. Pengerjaan Paralel & Pekerjaan Mendadak (Interupsi)
+                    </h4>
+                    <div class="space-y-2 text-xs text-slate-600 leading-relaxed bg-slate-50 p-3.5 rounded-xl border border-slate-200/80">
+                        <p>
+                            • <strong>Alokasi Proporsional Harian:</strong> Jika dalam 1 hari desainer mengalokasikan 4 jam untuk Layout Buku dan 3 jam untuk Desain Lain/Revisi, poin dibagi proporsional (2 Poin untuk Buku, 1.5 Poin untuk Desain Lain). Poin TIDAK mengasumsikan desainer bekerja 100% pada 1 buku sepanjang hari.
+                        </p>
+                        <p>
+                            • <strong>Catatan Order Mendadak:</strong> Pekerjaan mendadak/revisi di luar rencana WAJIB dicatat sebagai <strong>baris order baru</strong>. Ini menjaga agar estimasi awal proyek utama tetap akurat dan lonjakan kerja tambahan terhitung sah di WOLA.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- 4. PENANGANAN KEGIATAN MENGINAP / LIVE-IN -->
+                <div class="space-y-3">
+                    <h4 class="font-extrabold text-slate-900 text-sm sm:text-base border-b border-slate-200 pb-2 flex items-center gap-2">
+                        <span>🚌</span> 4. Dokumentasi Out-of-Town / Menginap (misal: Live-In 4 Hari 3 Malam)
+                    </h4>
+                    <div class="bg-purple-50/80 p-3.5 rounded-xl border border-purple-200/80 space-y-2 text-xs text-purple-900 leading-relaxed">
+                        <p>
+                            Perhitungan mencakup <strong>Jam Kerja Efektif Liputan (Pagi–Malam) + Waktu Perjalanan Operasional + Sorting File Awal</strong>.
+                        </p>
+                        <div class="bg-white/80 p-2.5 rounded-lg border border-purple-200 text-[11px] font-mono text-purple-950">
+                            <strong>Simulasi Live-in (4H3M):</strong><br>
+                            • Liputan & Standby: 4 hari &times; 10 jam = 40 jam<br>
+                            • Perjalanan PP: 2 &times; 4 jam = 8 jam<br>
+                            • <strong>Total Jam Efektif: 48 Jam = 24 POIN WOLA</strong> (Dapat di-input per hari @ 6 Poin/hari).
+                        </div>
+                    </div>
+                </div>
+
             </div>
+
             <div class="bg-slate-50 p-3.5 sm:p-4 border-t border-slate-100 flex justify-end shrink-0">
                 <button onclick="closeBobotModal()" class="w-full sm:w-auto bg-slate-900 hover:bg-slate-800 text-white font-bold px-5 py-2 rounded-xl text-xs sm:text-sm transition shadow-sm">
                     Tutup Panduan
@@ -313,6 +441,96 @@
 
         let currentParentRowId = null;
         let selectedSubTaskPetugas = [];
+        let selectedNewOrderPetugas = [];
+
+        function openNewOrderModal() {
+            if (!checkAdminAccess()) return;
+            selectedNewOrderPetugas = [];
+            
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('newOrderTglInput').value = today;
+            document.getElementById('newOrderUnitInput').value = "";
+            document.getElementById('newOrderKegiatanInput').value = "";
+            document.getElementById('newOrderPicInput').value = "";
+            document.getElementById('newOrderJenisInput').value = "Desain Grafis";
+            document.getElementById('newOrderBobotInput').value = 1;
+            document.getElementById('newOrderDetailInput').value = "";
+            
+            renderNewOrderPetugasButtons();
+            document.getElementById('newOrderModal').classList.remove('hidden');
+        }
+
+        function closeNewOrderModal() {
+            document.getElementById('newOrderModal').classList.add('hidden');
+        }
+
+        function renderNewOrderPetugasButtons() {
+            const container = document.getElementById('newOrderPetugasContainer');
+            container.innerHTML = TIM.map(t => {
+                const active = selectedNewOrderPetugas.some(p => p.toLowerCase() === t.toLowerCase());
+                return `
+                    <button type="button" onclick="toggleNewOrderPetugas('${t}')" 
+                        class="px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${active ? 'bg-amber-600 text-white font-bold shadow-xs' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}">
+                        ${t}
+                    </button>
+                `;
+            }).join('');
+        }
+
+        function toggleNewOrderPetugas(nama) {
+            const idx = selectedNewOrderPetugas.findIndex(p => p.toLowerCase() === nama.toLowerCase());
+            if (idx > -1) selectedNewOrderPetugas.splice(idx, 1);
+            else selectedNewOrderPetugas.push(nama);
+            renderNewOrderPetugasButtons();
+        }
+
+        async function saveNewOrder() {
+            const tglVal = document.getElementById('newOrderTglInput').value;
+            const unitVal = document.getElementById('newOrderUnitInput').value.trim();
+            const kegiatanVal = document.getElementById('newOrderKegiatanInput').value.trim();
+            const picVal = document.getElementById('newOrderPicInput').value.trim();
+            const jenisVal = document.getElementById('newOrderJenisInput').value;
+            const bobotVal = parseFloat(document.getElementById('newOrderBobotInput').value) || 1;
+            const detailVal = document.getElementById('newOrderDetailInput').value.trim();
+
+            if (!kegiatanVal) {
+                alert("⚠️ Nama kegiatan / order mendadak tidak boleh kosong.");
+                return;
+            }
+
+            closeNewOrderModal();
+            document.body.style.cursor = 'wait';
+
+            try {
+                const payload = {
+                    action: "createOrder",
+                    tgl: tglVal,
+                    unit: unitVal || "Lainnya",
+                    kegiatan: kegiatanVal,
+                    pic: picVal || "Mendadak",
+                    jenisKerja: jenisVal,
+                    bobot: bobotVal,
+                    petugasList: selectedNewOrderPetugas,
+                    detail: detailVal,
+                    status: "In Progress"
+                };
+
+                await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                alert("⚡ Order Mendadak berhasil ditambahkan! Memperbarui data dashboard...");
+                await fetchData();
+            } catch (error) {
+                console.error("Gagal menambahkan order mendadak:", error);
+                alert("⚠️ Terjadi kesalahan saat menyimpan order mendadak.");
+            } finally {
+                document.body.style.cursor = 'default';
+            }
+        }
 
         function openBobotModal() { document.getElementById('bobotModal').classList.remove('hidden'); }
         function closeBobotModal() { document.getElementById('bobotModal').classList.add('hidden'); }
@@ -1001,7 +1219,7 @@
         async function updateStatus(rowId, statusBaru) {
             if (!checkAdminAccess()) return;
             const idx = allData.findIndex(d => d.rowId === rowId);
-            if (idx !== -1) return;
+            if (idx === -1) return;
 
             allData[idx].status = statusBaru;
             renderDashboard();
@@ -1015,7 +1233,7 @@
                     method: 'POST',
                     mode: 'no-cors',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ rowId, petugasList, status, bobot })
+                    body: JSON.stringify(payload = { rowId, petugasList, status, bobot })
                 });
                 document.body.style.cursor = 'default';
             } catch (error) {
