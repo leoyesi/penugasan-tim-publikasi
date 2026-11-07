@@ -203,6 +203,7 @@
                 <button onclick="closeBobotModal()" class="text-slate-400 hover:text-white text-2xl font-bold px-2 py-1 rounded-lg transition">&times;</button>
             </div>
             <div class="p-4 sm:p-6 overflow-y-auto space-y-5 text-slate-700 text-xs sm:text-sm">
+                <!-- 4 Parameter Utama -->
                 <div class="space-y-3">
                     <h4 class="font-extrabold text-slate-900 text-sm sm:text-base border-b border-slate-100 pb-2 flex items-center gap-2">
                         <span>🎯</span> 4 Parameter Utama Penilaian:
@@ -230,89 +231,6 @@
             <div class="bg-slate-50 p-3.5 sm:p-4 border-t border-slate-100 flex justify-end shrink-0">
                 <button onclick="closeBobotModal()" class="w-full sm:w-auto bg-slate-900 hover:bg-slate-800 text-white font-bold px-5 py-2 rounded-xl text-xs sm:text-sm transition shadow-sm">
                     Tutup Panduan
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- MODAL POP-UP: EDIT DETAIL ORDER (KHUSUS ADMIN) -->
-    <div id="editDetailModal" class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-3 sm:p-5 transition-all">
-        <div class="bg-white w-full max-w-xl rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[90vh] animate-in fade-in zoom-in duration-200">
-            <div class="bg-slate-900 text-white p-4 sm:p-5 flex justify-between items-center shrink-0">
-                <div class="flex items-center gap-2.5">
-                    <span class="text-xl sm:text-2xl">✏️</span>
-                    <div>
-                        <h3 class="font-bold text-base sm:text-lg leading-tight">Edit Detail Order</h3>
-                        <p class="text-[11px] sm:text-xs text-slate-300 mt-0.5">Ubah informasi kegiatan, PIC, jenis pekerjaan, dan rincian order (Admin)</p>
-                    </div>
-                </div>
-                <button onclick="closeEditDetailModal()" class="text-slate-400 hover:text-white text-2xl font-bold px-2 py-1 rounded-lg transition">&times;</button>
-            </div>
-            
-            <div class="p-4 sm:p-6 overflow-y-auto space-y-4 text-slate-700 text-xs sm:text-sm">
-                <input type="hidden" id="editRowIdInput">
-                
-                <div class="space-y-1.5">
-                    <label class="font-bold text-slate-800 block text-xs">Nama / Judul Kegiatan:</label>
-                    <input type="text" id="editKegiatanInput" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm">
-                </div>
-
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div class="space-y-1.5">
-                        <label class="font-bold text-slate-800 block text-xs">Unit Pemohon:</label>
-                        <input type="text" id="editUnitInput" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm">
-                    </div>
-                    <div class="space-y-1.5">
-                        <label class="font-bold text-slate-800 block text-xs">PIC (Pemohon):</label>
-                        <input type="text" id="editPicInput" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm">
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div class="space-y-1.5">
-                        <label class="font-bold text-slate-800 block text-xs">Jenis Pekerjaan:</label>
-                        <select id="editJenisInput" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm">
-                            <option value="Desain Grafis">Desain Grafis (Flyer, Banner, Post IG, dll)</option>
-                            <option value="Editing Video">Editing Video / Post-Production</option>
-                            <option value="Foto dan Video">Foto dan Video (Liputan/Syuting)</option>
-                            <option value="Layout Buku">Layout Buku / Publication</option>
-                            <option value="Peminjaman Alat">Peminjaman Alat (Alat saja, 0 Poin)</option>
-                            <option value="Lainnya">Lainnya</option>
-                        </select>
-                    </div>
-                    <div class="space-y-1.5">
-                        <label class="font-bold text-slate-800 block text-xs">Bobot Poin WOLA:</label>
-                        <input type="number" id="editBobotInput" step="0.5" min="0" max="20" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm">
-                    </div>
-                </div>
-
-                <div class="space-y-1.5">
-                    <label class="font-bold text-slate-800 block text-xs">Deskripsi / Detail Pekerjaan:</label>
-                    <textarea id="editDetailInput" rows="3" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm" placeholder="Isikan instruksi atau detail spesifik pekerjaan..."></textarea>
-                </div>
-
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div class="space-y-1.5">
-                        <label class="font-bold text-slate-800 block text-xs">Peralatan Dipinjam:</label>
-                        <input type="text" id="editAlatInput" placeholder="Sony A7III, Mic Wireless" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm">
-                    </div>
-                    <div class="space-y-1.5">
-                        <label class="font-bold text-slate-800 block text-xs">Jam Ambil/Mulai:</label>
-                        <input type="text" id="editJamAmbilInput" placeholder="08:00" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm">
-                    </div>
-                    <div class="space-y-1.5">
-                        <label class="font-bold text-slate-800 block text-xs">Jam Selesai/Kembali:</label>
-                        <input type="text" id="editJamKembaliInput" placeholder="15:00" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm">
-                    </div>
-                </div>
-            </div>
-
-            <div class="bg-slate-50 p-3.5 sm:p-4 border-t border-slate-100 flex justify-end gap-2 shrink-0">
-                <button onclick="closeEditDetailModal()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold px-4 py-2 rounded-xl text-xs sm:text-sm transition">
-                    Batal
-                </button>
-                <button onclick="saveEditDetail()" class="bg-amber-600 hover:bg-amber-700 text-white font-bold px-5 py-2 rounded-xl text-xs sm:text-sm transition shadow-sm flex items-center gap-1.5">
-                    <span>💾</span> Simpan Perubahan
                 </button>
             </div>
         </div>
@@ -395,106 +313,9 @@
 
         let currentParentRowId = null;
         let selectedSubTaskPetugas = [];
-        let currentEditRowId = null;
 
         function openBobotModal() { document.getElementById('bobotModal').classList.remove('hidden'); }
         function closeBobotModal() { document.getElementById('bobotModal').classList.add('hidden'); }
-
-        // EDIT DETAIL ORDER (KHUSUS ADMIN)
-        function openEditDetailModal(rowId) {
-            if (!checkAdminAccess()) return;
-
-            const item = allData.find(d => d.rowId === rowId);
-            if (!item) return;
-
-            currentEditRowId = rowId;
-            document.getElementById('editRowIdInput').value = rowId;
-            document.getElementById('editKegiatanInput').value = item.kegiatan || '';
-            document.getElementById('editUnitInput').value = item.unit || '';
-            document.getElementById('editPicInput').value = item.pic || '';
-            document.getElementById('editJenisInput').value = item.jenisKerja || 'Desain Grafis';
-            document.getElementById('editBobotInput').value = item.bobot !== undefined ? item.bobot : 1;
-            document.getElementById('editDetailInput').value = item.detail || '';
-            document.getElementById('editAlatInput').value = item.alat || '';
-            document.getElementById('editJamAmbilInput').value = item.jamAmbil || item.jam || '';
-            document.getElementById('editJamKembaliInput').value = item.jamKembali || '';
-
-            document.getElementById('editDetailModal').classList.remove('hidden');
-        }
-
-        function closeEditDetailModal() {
-            document.getElementById('editDetailModal').classList.add('hidden');
-        }
-
-        async function saveEditDetail() {
-            if (!currentEditRowId) return;
-
-            const kegiatan = document.getElementById('editKegiatanInput').value.trim();
-            if (!kegiatan) {
-                alert("⚠️ Nama kegiatan tidak boleh kosong.");
-                return;
-            }
-
-            const unit = document.getElementById('editUnitInput').value.trim();
-            const pic = document.getElementById('editPicInput').value.trim();
-            const jenisKerja = document.getElementById('editJenisInput').value;
-            const bobot = parseFloat(document.getElementById('editBobotInput').value) || 0;
-            const detail = document.getElementById('editDetailInput').value.trim();
-            const alat = document.getElementById('editAlatInput').value.trim();
-            const jamAmbil = document.getElementById('editJamAmbilInput').value.trim();
-            const jamKembali = document.getElementById('editJamKembaliInput').value.trim();
-
-            const idx = allData.findIndex(d => d.rowId === currentEditRowId);
-            if (idx !== -1) {
-                allData[idx].kegiatan = kegiatan;
-                allData[idx].unit = unit;
-                allData[idx].pic = pic;
-                allData[idx].jenisKerja = jenisKerja;
-                allData[idx].bobot = bobot;
-                allData[idx].detail = detail;
-                allData[idx].alat = alat;
-                allData[idx].jamAmbil = jamAmbil;
-                allData[idx].jam = jamAmbil;
-                allData[idx].jamKembali = jamKembali;
-
-                renderDashboard();
-            }
-
-            closeEditDetailModal();
-            document.body.style.cursor = 'wait';
-
-            try {
-                const payload = {
-                    action: "updateDetail",
-                    rowId: currentEditRowId,
-                    kegiatan: kegiatan,
-                    unit: unit,
-                    pic: pic,
-                    jenisKerja: jenisKerja,
-                    bobot: bobot,
-                    detail: detail,
-                    alat: alat,
-                    jamAmbil: jamAmbil,
-                    jamKembali: jamKembali,
-                    petugasList: allData[idx].petugas,
-                    status: allData[idx].status
-                };
-
-                await fetch(SCRIPT_URL, {
-                    method: 'POST',
-                    mode: 'no-cors',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-
-                alert("✅ Detail order berhasil diperbarui & disinkronkan ke Google Sheets!");
-            } catch (error) {
-                console.error("Gagal memperbarui detail order:", error);
-                alert("⚠️ Terjadi kesalahan saat menyimpan perubahan ke Google Sheets.");
-            } finally {
-                document.body.style.cursor = 'default';
-            }
-        }
 
         function openSubTaskModal(rowId) {
             if (!checkAdminAccess()) return;
@@ -896,6 +717,7 @@
                 }
             });
 
+            // ANALISIS WOLA MANAJERIAL
             const totalPoints = Object.values(points).reduce((a, b) => a + b, 0);
             const numStaff = TIM.length;
             const avgPoints = (totalPoints / (numStaff || 1)).toFixed(1);
@@ -909,6 +731,7 @@
                 wolaStatusBadge = `<span class="px-2.5 py-1 bg-rose-100 text-rose-800 rounded-lg font-bold border border-rose-200">🔴 Overload (Potensi Lembur)</span>`;
             }
 
+            // Render WOLA Summary Cards
             const wolaContainer = document.getElementById('wolaSummaryCards');
             if (wolaContainer) {
                 wolaContainer.innerHTML = `
@@ -951,9 +774,11 @@
                 `;
             }).join('');
 
+            // RENDER KARTU PENJELASAN & REKOMENDASI DYNAMIS
             renderWolaInsights(points, taskCounts, totalPoints, avgPoints);
         }
 
+        // FUNGSI KHUSUS ANALISA HASIL & REKOMENDASI
         function renderWolaInsights(points, taskCounts, totalPoints, avgPoints) {
             const panel = document.getElementById('wolaInsightsPanel');
             if (!panel) return;
@@ -964,6 +789,7 @@
 
             let rekomendasiList = [];
 
+            // 1. Rekomendasi Workload Balancing
             if (overloadStaff.length > 0 && amanStaff.length > 0) {
                 rekomendasiList.push(`<strong>Pemerataan Beban Kerja (Rebalancing):</strong> Staf <code>${overloadStaff.join(', ')}</code> berstatus <strong>Overload</strong>. Alihkan permintaan order baru yang bersifat rutin/sederhana kepada <code>${amanStaff.join(', ')}</code> yang masih memiliki kapasitas longgar.`);
             } else if (highStaff.length >= 4) {
@@ -972,20 +798,22 @@
                 rekomendasiList.push(`<strong>Kapasitas Tim Sangat Aman:</strong> Seluruh personel berada di zona hijau (&le;15 Poin). Tim siap menerima proyek strategi baru atau pengembangan aset materi publikasi sekolah.`);
             }
 
+            // 2. Rekomendasi Kesiapan Materi Mentah
             if (avgPoints > 18) {
                 rekomendasiList.push(`<strong>Ketegasan Materi Mentah (Brief Matang):</strong> Minta unit pemohon menyerahkan draf teks & aset yang sudah 100% final sebelum penugasan dimulai untuk mencegah penambahan bobot +1 Poin akibat penyusunan dari nol.`);
             }
 
+            // 3. Rekomendasi Focus Time & Context Switching
             const highTaskStaff = TIM.filter(t => taskCounts[t] >= 8);
             if (highTaskStaff.length > 0) {
                 rekomendasiList.push(`<strong>Perlindungan Context Switching:</strong> Staf <code>${highTaskStaff.join(', ')}</code> memegang frekuensi order tinggi (&ge;8 order). Lindungi waktu fokus mereka dengan mengelompokkan jadwal revisi di jam tertentu.`);
             }
 
+            // 4. Evaluasi Kecukupan Tim & Opsi Vendor Temporer
             if (avgPoints > 25) {
-                const butuhStaf = Math.ceil((totalPoints - (TIM.length * 20)) / 20);
-                rekomendasiList.push(`<strong>Rekomendasi Headcount Planning:</strong> Rata-rata beban tim konsisten Overload. Direkomendasikan menambah <strong>+${butuhStaf} Personel Baru</strong> atau meng-outsourcing proyek besar ke vendor eksternal.`);
+                rekomendasiList.push(`<strong>Opsi Bantuan Temporer (Vendor/Freelance):</strong> Beban kerja periode ini tergolong Overload. Jika kegiatan puncak serupa diproyeksikan berulang, pertimbangkan bantuan vendor eksternal atau desainer freelance sementara.`);
             } else {
-                rekomendasiList.push(`<strong>Status Rekrutmen:</strong> Belum memerlukan penambahan headcount baru. Jumlah 6 staf masih sanggup mengover volume kerja saat ini.`);
+                rekomendasiList.push(`<strong>Kecukupan Tim Internal:</strong> Seluruh volume penugasan periode ini ter-cover secara optimal oleh 6 personel internal tanpa memerlukan dukungan luar.`);
             }
 
             panel.innerHTML = `
@@ -998,6 +826,7 @@
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                        <!-- Maksud Angka WOLA -->
                         <div class="bg-slate-800/80 p-3.5 rounded-xl border border-slate-700/70 space-y-2">
                             <span class="font-bold text-amber-400 block text-[11px] uppercase tracking-wider">🔍 MAKSUD ANGKA REKAP WOLA:</span>
                             <ul class="space-y-1.5 text-slate-300 text-[11px] leading-relaxed list-disc pl-4">
@@ -1009,6 +838,7 @@
                             </ul>
                         </div>
 
+                        <!-- Arahan / Rekomendasi Kebijakan -->
                         <div class="bg-slate-800/80 p-3.5 rounded-xl border border-slate-700/70 space-y-2">
                             <span class="font-bold text-emerald-400 block text-[11px] uppercase tracking-wider">🎯 REKOMENDASI KEBIJAKAN / ARAHAN:</span>
                             <ul class="space-y-2 text-slate-200 text-[11px] leading-relaxed list-decimal pl-4">
@@ -1058,25 +888,11 @@
                             ${isAlat ? '<span class="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded border border-amber-200">HANYA ALAT SAJA</span>' : ''}
                         </div>
                         <div class="text-[11px] sm:text-xs text-slate-500 font-medium">PIC: <span class="text-slate-700 font-semibold">${item.pic}</span></div>
-                        
-                        <div class="flex items-center gap-2 pt-1 flex-wrap">
-                            <button onclick="toggleDetail('${item.rowId}')" class="text-[11px] sm:text-xs text-blue-600 hover:text-blue-800 font-bold inline-flex items-center gap-1">
-                                <span>LIHAT DETAIL</span>
-                                <span class="text-[9px]">▼</span>
-                            </button>
-                            <span class="text-slate-300">|</span>
-                            <button onclick="openEditDetailModal(${item.rowId})" title="Edit Detail Order (Admin)" class="text-[11px] sm:text-xs text-amber-600 hover:text-amber-800 font-bold inline-flex items-center gap-1">
-                                <span>✏️ EDIT DETAIL</span>
-                            </button>
-                        </div>
-                        
-                        <div id="detail-${item.rowId}" class="hidden mt-2 p-3 bg-slate-50 rounded-xl text-[11px] sm:text-xs text-slate-600 border border-slate-200 space-y-1.5 leading-relaxed">
-                            <div class="flex justify-between items-center pb-1 border-b border-slate-200/60 mb-1">
-                                <strong class="text-slate-800 font-bold">Rincian Informasi Order:</strong>
-                                <button onclick="openEditDetailModal(${item.rowId})" class="bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white font-bold text-[10px] px-2.5 py-0.5 rounded-lg transition shadow-2xs flex items-center gap-1">
-                                    ✏️ Edit Detail
-                                </button>
-                            </div>
+                        <button onclick="toggleDetail('${item.rowId}')" class="text-[11px] sm:text-xs text-blue-600 hover:text-blue-800 font-bold inline-flex items-center gap-1 pt-1">
+                            <span>LIHAT DETAIL</span>
+                            <span class="text-[9px]">▼</span>
+                        </button>
+                        <div id="detail-${item.rowId}" class="hidden mt-2 p-3 bg-slate-50 rounded-xl text-[11px] sm:text-xs text-slate-600 border border-slate-200 space-y-1 leading-relaxed">
                             <div><strong class="text-slate-800">Jenis Pekerjaan:</strong> ${item.jenisKerja}</div>
                             <div><strong class="text-slate-800">Detail:</strong> ${item.detail}</div>
                             <div><strong class="text-slate-800">Peralatan:</strong> ${item.alat}</div>
@@ -1185,7 +1001,7 @@
         async function updateStatus(rowId, statusBaru) {
             if (!checkAdminAccess()) return;
             const idx = allData.findIndex(d => d.rowId === rowId);
-            if (idx === -1) return;
+            if (idx !== -1) return;
 
             allData[idx].status = statusBaru;
             renderDashboard();
