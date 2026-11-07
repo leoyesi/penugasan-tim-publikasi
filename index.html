@@ -194,6 +194,101 @@
 
     </div>
 
+    <!-- MODAL POP-UP: EDIT ORDER & SUB-TUGAS (UPDATE) -->
+    <div id="editOrderModal" class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-3 sm:p-5 transition-all">
+        <div class="bg-white w-full max-w-xl rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[90vh] animate-in fade-in zoom-in duration-200">
+            <div class="bg-slate-900 text-white p-4 sm:p-5 flex justify-between items-center shrink-0">
+                <div class="flex items-center gap-2.5">
+                    <span class="text-xl sm:text-2xl">✏️</span>
+                    <div>
+                        <h3 class="font-bold text-base sm:text-lg leading-tight">Edit Order / Sub-Tugas</h3>
+                        <p class="text-[11px] sm:text-xs text-slate-300 mt-0.5">Ubah rincian kegiatan, bobot poin, personel bertugas, atau status</p>
+                    </div>
+                </div>
+                <button onclick="closeEditOrderModal()" class="text-slate-400 hover:text-white text-2xl font-bold px-2 py-1 rounded-lg transition">&times;</button>
+            </div>
+            <div class="p-4 sm:p-6 overflow-y-auto space-y-4 text-slate-700 text-xs sm:text-sm">
+                
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div class="space-y-1.5">
+                        <label class="font-bold text-slate-800 block text-xs">Tanggal Penugasan:</label>
+                        <input type="date" id="editOrderTglInput" 
+                            class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm">
+                    </div>
+                    <div class="space-y-1.5">
+                        <label class="font-bold text-slate-800 block text-xs">Unit Pemohon:</label>
+                        <input type="text" id="editOrderUnitInput" placeholder="misal: SD, SMP, Marketing..." 
+                            class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm">
+                    </div>
+                </div>
+
+                <div class="space-y-1.5">
+                    <label class="font-bold text-slate-800 block text-xs">Nama Kegiatan / Sub-Tugas:</label>
+                    <input type="text" id="editOrderKegiatanInput" placeholder="Nama kegiatan atau sub-tugas..." 
+                        class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm">
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div class="space-y-1.5">
+                        <label class="font-bold text-slate-800 block text-xs">PIC Pemohon:</label>
+                        <input type="text" id="editOrderPicInput" placeholder="Nama PIC..." 
+                            class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm">
+                    </div>
+                    <div class="space-y-1.5">
+                        <label class="font-bold text-slate-800 block text-xs">Jenis Pekerjaan:</label>
+                        <select id="editOrderJenisInput" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm">
+                            <option value="Desain Grafis">Desain Grafis (Flyer, Spanduk, Post)</option>
+                            <option value="Foto dan Video">Foto dan Video (Liputan/Dokumentasi)</option>
+                            <option value="Editing Video">Editing Video / Post-Production</option>
+                            <option value="Layout Buku">Layout Buku / Publication</option>
+                            <option value="Lainnya">Lainnya</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div class="space-y-1.5">
+                        <label class="font-bold text-slate-800 block text-xs">Bobot Poin WOLA (1 Poin = 2 Jam Murni):</label>
+                        <input type="number" id="editOrderBobotInput" min="0.5" step="0.5" max="50" value="1" 
+                            class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm">
+                    </div>
+                    <div class="space-y-1.5">
+                        <label class="font-bold text-slate-800 block text-xs">Status Penugasan:</label>
+                        <select id="editOrderStatusInput" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm">
+                            <option value="In Progress">⏳ In Progress</option>
+                            <option value="Done">✅ Done</option>
+                            <option value="Canceled">❌ Canceled</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="space-y-1.5">
+                    <label class="font-bold text-slate-800 block text-xs">Pilih Personel Bertugas:</label>
+                    <div id="editOrderPetugasContainer" class="flex flex-wrap gap-1.5 pt-1"></div>
+                </div>
+
+                <div class="space-y-1.5">
+                    <label class="font-bold text-slate-800 block text-xs">Detail / Catatan Tambahan (Opsional):</label>
+                    <textarea id="editOrderDetailInput" rows="2" placeholder="Detail spesifik kegiatan..." 
+                        class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm"></textarea>
+                </div>
+            </div>
+            <div class="bg-slate-50 p-3.5 sm:p-4 border-t border-slate-100 flex items-center justify-between gap-2 shrink-0">
+                <button onclick="deleteOrderAdmin(currentEditRowId)" class="bg-rose-100 hover:bg-rose-200 active:bg-rose-300 text-rose-700 font-bold px-3.5 py-2 rounded-xl text-xs sm:text-sm transition flex items-center gap-1.5 border border-rose-300">
+                    <span>🗑️</span> Hapus
+                </button>
+                <div class="flex items-center gap-2">
+                    <button onclick="closeEditOrderModal()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold px-4 py-2 rounded-xl text-xs sm:text-sm transition">
+                        Batal
+                    </button>
+                    <button onclick="saveEditOrder()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-5 py-2 rounded-xl text-xs sm:text-sm transition shadow-sm flex items-center gap-1.5">
+                        <span>💾</span> Simpan Perubahan
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- MODAL POP-UP: TAMBAH ORDER MENDADAK (AD-HOC) -->
     <div id="newOrderModal" class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-3 sm:p-5 transition-all">
         <div class="bg-white w-full max-w-xl rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[90vh] animate-in fade-in zoom-in duration-200">
@@ -440,9 +535,155 @@
         let alatChartObj = null;
 
         let currentParentRowId = null;
+        let currentEditRowId = null;
         let selectedSubTaskPetugas = [];
         let selectedNewOrderPetugas = [];
+        let selectedEditPetugas = [];
 
+        // FUNGSI EDIT ORDER / SUB-TUGAS (UPDATE & DELETE)
+        function openEditOrderModal(rowId) {
+            if (!checkAdminAccess()) return;
+            const item = allData.find(d => d.rowId === rowId);
+            if (!item) return;
+
+            currentEditRowId = rowId;
+            selectedEditPetugas = item.petugas ? [...item.petugas] : [];
+
+            document.getElementById('editOrderTglInput').value = item.tglRaw ? item.tglRaw : '';
+            document.getElementById('editOrderUnitInput').value = item.unit || '';
+            document.getElementById('editOrderKegiatanInput').value = item.kegiatan || '';
+            document.getElementById('editOrderPicInput').value = item.pic || '';
+            document.getElementById('editOrderJenisInput').value = item.jenisKerja || 'Desain Grafis';
+            document.getElementById('editOrderBobotInput').value = item.bobot || 1;
+            document.getElementById('editOrderStatusInput').value = item.status || 'In Progress';
+            document.getElementById('editOrderDetailInput').value = item.detail || '';
+
+            renderEditPetugasButtons();
+            document.getElementById('editOrderModal').classList.remove('hidden');
+        }
+
+        function closeEditOrderModal() {
+            document.getElementById('editOrderModal').classList.add('hidden');
+        }
+
+        function renderEditPetugasButtons() {
+            const container = document.getElementById('editOrderPetugasContainer');
+            container.innerHTML = TIM.map(t => {
+                const active = selectedEditPetugas.some(p => p.toLowerCase() === t.toLowerCase());
+                return `
+                    <button type="button" onclick="toggleEditPetugas('${t}')" 
+                        class="px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${active ? 'bg-blue-600 text-white font-bold shadow-xs' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}">
+                        ${t}
+                    </button>
+                `;
+            }).join('');
+        }
+
+        function toggleEditPetugas(nama) {
+            const idx = selectedEditPetugas.findIndex(p => p.toLowerCase() === nama.toLowerCase());
+            if (idx > -1) selectedEditPetugas.splice(idx, 1);
+            else selectedEditPetugas.push(nama);
+            renderEditPetugasButtons();
+        }
+
+        async function saveEditOrder() {
+            const kegiatanVal = document.getElementById('editOrderKegiatanInput').value.trim();
+            if (!kegiatanVal) {
+                alert("⚠️ Nama kegiatan / sub-tugas tidak boleh kosong.");
+                return;
+            }
+
+            const tglVal = document.getElementById('editOrderTglInput').value;
+            const unitVal = document.getElementById('editOrderUnitInput').value.trim();
+            const picVal = document.getElementById('editOrderPicInput').value.trim();
+            const jenisVal = document.getElementById('editOrderJenisInput').value;
+            const bobotVal = parseFloat(document.getElementById('editOrderBobotInput').value) || 1;
+            const statusVal = document.getElementById('editOrderStatusInput').value;
+            const detailVal = document.getElementById('editOrderDetailInput').value.trim();
+
+            closeEditOrderModal();
+            document.body.style.cursor = 'wait';
+
+            try {
+                const payload = {
+                    action: "updateOrder",
+                    rowId: currentEditRowId,
+                    tgl: tglVal,
+                    unit: unitVal,
+                    kegiatan: kegiatanVal,
+                    pic: picVal,
+                    jenisKerja: jenisVal,
+                    bobot: bobotVal,
+                    status: statusVal,
+                    petugasList: selectedEditPetugas,
+                    detail: detailVal
+                };
+
+                const idx = allData.findIndex(d => d.rowId === currentEditRowId);
+                if (idx !== -1) {
+                    allData[idx].kegiatan = kegiatanVal;
+                    if (tglVal) allData[idx].tglRaw = tglVal;
+                    allData[idx].unit = unitVal;
+                    allData[idx].pic = picVal;
+                    allData[idx].jenisKerja = jenisVal;
+                    allData[idx].bobot = bobotVal;
+                    allData[idx].status = statusVal;
+                    allData[idx].petugas = selectedEditPetugas;
+                    allData[idx].detail = detailVal;
+                    renderDashboard();
+                }
+
+                await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                alert("✅ Perubahan order/sub-tugas berhasil disimpan!");
+                await fetchData();
+            } catch (error) {
+                console.error("Gagal memperbarui order:", error);
+                alert("⚠️ Terjadi kesalahan saat menyimpan perubahan.");
+            } finally {
+                document.body.style.cursor = 'default';
+            }
+        }
+
+        async function deleteOrderAdmin(rowId) {
+            if (!checkAdminAccess()) return;
+            const item = allData.find(d => d.rowId === rowId);
+            const namaKegiatan = item ? item.kegiatan : "kegiatan ini";
+
+            if (!confirm(`⚠️ Apakah Anda yakin ingin MENGHAPUS order/sub-tugas berikut?\n\n"${namaKegiatan}"`)) {
+                return;
+            }
+
+            closeEditOrderModal();
+            document.body.style.cursor = 'wait';
+
+            try {
+                allData = allData.filter(d => d.rowId !== rowId);
+                renderDashboard();
+
+                await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: "deleteOrder", rowId: rowId })
+                });
+
+                alert("🗑️ Order/Sub-Tugas berhasil dihapus!");
+                await fetchData();
+            } catch (error) {
+                console.error("Gagal menghapus order:", error);
+                alert("⚠️ Terjadi kesalahan saat menghapus order.");
+            } finally {
+                document.body.style.cursor = 'default';
+            }
+        }
+
+        // FUNGSI TAMBAH ORDER MENDADAK
         function openNewOrderModal() {
             if (!checkAdminAccess()) return;
             selectedNewOrderPetugas = [];
@@ -1091,10 +1332,10 @@
                         </span>
                     </td>
                     <td class="p-3.5 sm:p-4 align-top space-y-1.5">
-                        <div class="font-bold text-slate-900 text-xs sm:text-base leading-snug flex items-center gap-2 flex-wrap">
+                        <div class="font-bold text-slate-900 text-xs sm:text-base leading-snug flex items-center gap-1.5 flex-wrap">
                             <span>${item.kegiatan}</span>
                             <button onclick="editBobotAdmin(${item.rowId}, ${item.bobot})" 
-                                title="Klik untuk ubah poin (Khusus Admin)"
+                                title="Klik untuk ubah poin cepat (Khusus Admin)"
                                 class="${isAlat ? 'bg-slate-100 text-slate-500 border-slate-300' : 'bg-purple-100/80 hover:bg-purple-200 active:bg-purple-300 text-purple-800 border-purple-200'} text-[10px] font-bold px-2 py-0.5 rounded border transition flex items-center gap-1">
                                 ⚙️ ${isAlat ? 0 : item.bobot} POIN
                             </button>
@@ -1102,6 +1343,16 @@
                                 title="Pecah menjadi Sub-Tugas / Baris Turunan (Khusus Admin)"
                                 class="bg-blue-100/80 hover:bg-blue-200 active:bg-blue-300 text-blue-800 text-[10px] font-bold px-2 py-0.5 rounded border border-blue-200 transition flex items-center gap-1">
                                 ➕ Sub-Tugas
+                            </button>
+                            <button onclick="openEditOrderModal(${item.rowId})" 
+                                title="Edit Rincian Order / Sub-Tugas (Khusus Admin)"
+                                class="bg-amber-100/80 hover:bg-amber-200 active:bg-amber-300 text-amber-900 text-[10px] font-bold px-2 py-0.5 rounded border border-amber-300 transition flex items-center gap-1">
+                                ✏️ Edit
+                            </button>
+                            <button onclick="deleteOrderAdmin(${item.rowId})" 
+                                title="Hapus Order / Sub-Tugas (Khusus Admin)"
+                                class="bg-rose-100/80 hover:bg-rose-200 active:bg-rose-300 text-rose-800 text-[10px] font-bold px-2 py-0.5 rounded border border-rose-300 transition flex items-center gap-1">
+                                🗑️ Hapus
                             </button>
                             ${isAlat ? '<span class="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded border border-amber-200">HANYA ALAT SAJA</span>' : ''}
                         </div>
