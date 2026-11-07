@@ -132,7 +132,7 @@
                 <canvas id="personelBarChart"></canvas>
             </div>
 
-            <!-- PANEL ANALISIS HASIL WOLA & REKOMENDASI KEBIJAKAN MANAJERIAL -->
+            <!-- PANEL ANALISA HASIL & REKOMENDASI -->
             <div id="wolaInsightsPanel" class="pt-3"></div>
         </div>
 
@@ -774,11 +774,11 @@
                 `;
             }).join('');
 
-            // RENDER KARTU PENJELASAN & REKOMENDASI MANAJERIAL DYNAMIS
+            // RENDER KARTU PENJELASAN & REKOMENDASI DYNAMIS
             renderWolaInsights(points, taskCounts, totalPoints, avgPoints);
         }
 
-        // FUNGSI KHUSUS ANALISIS EKSEKUTIF & ARAHAN KEBIJAKAN PIMPINAN
+        // FUNGSI KHUSUS ANALISA HASIL & REKOMENDASI
         function renderWolaInsights(points, taskCounts, totalPoints, avgPoints) {
             const panel = document.getElementById('wolaInsightsPanel');
             if (!panel) return;
@@ -822,7 +822,7 @@
                     <div class="flex items-center justify-between border-b border-slate-700/80 pb-2.5">
                         <div class="flex items-center gap-2">
                             <span class="text-lg">💡</span>
-                            <h3 class="font-extrabold text-xs sm:text-sm tracking-wide uppercase text-blue-300">Analisis Hasil WOLA & Arahan Kebijakan Pimpinan</h3>
+                            <h3 class="font-extrabold text-xs sm:text-sm tracking-wide uppercase text-blue-300">ANALISA HASIL & REKOMENDASI</h3>
                         </div>
                         <span class="text-[10px] bg-blue-900/80 text-blue-200 px-2.5 py-0.5 rounded-full border border-blue-700 font-semibold">Panduan Keputusan Bulan Depan</span>
                     </div>
@@ -830,7 +830,7 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
                         <!-- Maksud Angka WOLA -->
                         <div class="bg-slate-800/80 p-3.5 rounded-xl border border-slate-700/70 space-y-2">
-                            <span class="font-bold text-amber-400 block text-[11px] uppercase tracking-wider">🔍 Maksud Angka Rekap WOLA:</span>
+                            <span class="font-bold text-amber-400 block text-[11px] uppercase tracking-wider">🔍 MAKSUD ANGKA REKAP WOLA:</span>
                             <ul class="space-y-1.5 text-slate-300 text-[11px] leading-relaxed list-disc pl-4">
                                 <li><strong>Total ${totalPoints} Poin WOLA:</strong> Setara &approx; <strong>${totalPoints * 2} Jam Kerja Efektif Murni</strong> karya desainer/dokumentator bulan ini.</li>
                                 <li><strong>Rata-rata ${avgPoints} Poin/Staf:</strong> Standar ideal adalah 20 Poin (40 jam murni/bulan). Kapasitas terpakai tim saat ini: <strong>${((avgPoints/20)*100).toFixed(0)}%</strong>.</li>
@@ -840,9 +840,9 @@
                             </ul>
                         </div>
 
-                        <!-- Arahan Kebijakan -->
+                        <!-- Rekomendasi -->
                         <div class="bg-slate-800/80 p-3.5 rounded-xl border border-slate-700/70 space-y-2">
-                            <span class="font-bold text-emerald-400 block text-[11px] uppercase tracking-wider">🎯 Rekomendasi Kebijakan / Arahan Pimpinan:</span>
+                            <span class="font-bold text-emerald-400 block text-[11px] uppercase tracking-wider">🎯 REKOMENDASI :</span>
                             <ul class="space-y-2 text-slate-200 text-[11px] leading-relaxed list-decimal pl-4">
                                 ${rekomendasiList.map(item => `<li>${item}</li>`).join('')}
                             </ul>
@@ -1017,7 +1017,7 @@
                     method: 'POST',
                     mode: 'no-cors',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ rowId, petugasList, status, bobot })
+                    body: JSON.stringify(payload = { rowId, petugasList, status, bobot })
                 });
                 document.body.style.cursor = 'default';
             } catch (error) {
@@ -1030,15 +1030,21 @@
             const selectedMonth = document.getElementById('monthFilter').value;
             const filteredData = allData.filter(item => item.bulanTahun === selectedMonth && item.status !== 'Canceled');
 
-            let text = `*REKAP PENUGASAN TIM PUBLIKASI - ${selectedMonth.toUpperCase()}*\n\n`;
+            let text = `*REKAP PENUGASAN TIM PUBLIKASI - ${selectedMonth.toUpperCase()}*
+
+`;
             TIM.forEach(t => {
                 const tasks = filteredData.filter(d => !isPeminjamanAlat(d) && d.petugas.some(p => p.toLowerCase() === t.toLowerCase()));
-                text += `*${t.toUpperCase()}* (${tasks.length} order):\n`;
-                if (tasks.length === 0) text += `- Nihil\n`;
+                text += `*${t.toUpperCase()}* (${tasks.length} order):
+`;
+                if (tasks.length === 0) text += `- Nihil
+`;
                 else {
-                    tasks.forEach(tk => { text += `- ${tk.tglFormatted}: ${tk.kegiatan} (${tk.unit})\n`; });
+                    tasks.forEach(tk => { text += `- ${tk.tglFormatted}: ${tk.kegiatan} (${tk.unit})
+`; });
                 }
-                text += `\n`;
+                text += `
+`;
             });
 
             navigator.clipboard.writeText(text).then(() => {
