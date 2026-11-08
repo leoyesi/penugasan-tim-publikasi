@@ -633,6 +633,8 @@
                     renderDashboard();
                 }
 
+                localStorage.setItem('penugasanDataCache', JSON.stringify(allData));
+
                 await fetch(SCRIPT_URL, {
                     method: 'POST',
                     mode: 'no-cors',
@@ -1494,6 +1496,16 @@
                     jenisKerja: item ? item.jenisKerja : "",
                     detail: item ? item.detail : ""
                 };
+
+                // Perbarui memori & cache lokal secara langsung
+                const idx = allData.findIndex(d => d.rowId === rowId);
+                if (idx !== -1) {
+                    allData[idx].bobot = bobot;
+                    allData[idx].petugas = petugasList;
+                    allData[idx].status = status;
+                }
+                localStorage.setItem('penugasanDataCache', JSON.stringify(allData));
+
                 await fetch(SCRIPT_URL, {
                     method: 'POST',
                     mode: 'no-cors',
