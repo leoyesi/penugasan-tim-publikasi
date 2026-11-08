@@ -1,288 +1,1535 @@
-// =================================================================
-// KODE GOOGLE APPS SCRIPT (Code.gs) - REVISI FITUR CRUD & SYNC POIN WOLA
-// Backend API Web App Dashboard Penugasan Tim Publikasi
-// =================================================================
-
-const SPREADSHEET_ID = "17mh0yuN-e6IAbcEtL8vhAdyp7AdEa0q93ijUfuQM40A"; 
-
-function getSpreadsheet() {
-  if (SPREADSHEET_ID && SPREADSHEET_ID.trim() !== "") {
-    return SpreadsheetApp.openById(SPREADSHEET_ID);
-  }
-  return SpreadsheetApp.getActiveSpreadsheet();
-}
-
-function doGet() {
-  try {
-    const ss = getSpreadsheet();
-    if (!ss) throw new Error("Spreadsheet tidak ditemukan.");
-    
-    const sheet = ss.getSheets()[0]; 
-    const rawValues = sheet.getDataRange().getValues(); 
-    const displayValues = sheet.getDataRange().getDisplayValues(); 
-    
-    let output = [];
-    const timNames = ["magang", "dodai", "nia", "wahyu", "yesi", "indri", "lio", "joan"];
-
-    for (let i = 1; i < displayValues.length; i++) {
-      let row = displayValues[i];
-      let rawRow = rawValues[i];
-      
-      if (!row || row.join("").trim() === "") continue;
-
-      let infoKegiatan = row[7] || row[28] || row[27] || row[23] || "Order tanpa nama"; 
-      let jenisKerja = row[23] || row[13] || "-"; 
-      let detailKebutuhan = row[28] || row[11] || "Tidak ada detail spesifik dicantumkan."; 
-
-      let infoAlat = row[21] || "-"; 
-      let jamAmbil = row[22] || "-"; 
-      let jamKembali = row[30] || "-"; 
-
-      // Detail Form
-      let rincianOutput = row[28] || detailKebutuhan;
-      let kesiapanTeks = row[31] || "-";
-      let ketersediaanFoto = row[32] || "-";
-      let linkDrive = (row[33] && String(row[33]).indexOf("http") !== -1) ? row[33] : ((row[37] && String(row[37]).indexOf("http") !== -1) ? row[37] : "");
-      let catatanTambahan = row[34] || "-";
-
-      // --- SMART READ PETUGAS (Utamakan Kolom AN [39], Fallback ke AM [38], AL [37], AH [33]) ---
-      let petugasRaw = "";
-      const petugasIndices = [39, 38, 37, 33];
-      for (let k = 0; k < petugasIndices.length; k++) {
-        let idx = petugasIndices[k];
-        if (row[idx]) {
-          let strVal = String(row[idx]).trim();
-          let strLower = strVal.toLowerCase();
-          let hasTeam = timNames.some(function(tm) { return strLower.indexOf(tm) !== -1; });
-          if (hasTeam && strLower.indexOf("http") === -1) {
-            petugasRaw = strVal;
-            break;
-          }
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kontrol Penugasan Tim Publikasi & Workload Analysis</title>
+    <!-- Google Font Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
         }
-      }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body class="bg-slate-50/80 text-slate-800 min-h-screen p-3 sm:p-6 md:p-8 antialiased selection:bg-blue-500 selection:text-white">
+    <div class="max-w-7xl mx-auto space-y-6 sm:space-y-8">
 
-      // --- SMART READ STATUS (Utamakan Kolom AO [40], Fallback ke AN [39], AM [38]) ---
-      let statusRaw = "In Progress";
-      const statusIndices = [40, 39, 38, 34];
-      for (let k = 0; k < statusIndices.length; k++) {
-        let idx = statusIndices[k];
-        if (row[idx]) {
-          let strVal = String(row[idx]).trim();
-          let strLower = strVal.toLowerCase();
-          if (strLower === "done" || strLower === "in progress" || strLower === "canceled" || strLower === "batal") {
-            statusRaw = (strLower === "done") ? "Done" : ((strLower === "batal" || strLower === "canceled") ? "Canceled" : "In Progress");
-            break;
-          }
+        <!-- HEADER APLIKASI -->
+        <header class="text-center space-y-1.5 sm:space-y-2 pt-2 sm:pt-4">
+            <div class="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 text-blue-700 text-xs font-bold rounded-full border border-blue-100 mb-1">
+                <span class="w-2 h-2 rounded-full bg-blue-600 animate-pulse"></span>
+                Sistem Penugasan & Workload Analysis (WOLA)
+            </div>
+            <h1 class="text-2xl sm:text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight">KONTROL PENUGASAN TIM PUBLIKASI</h1>
+            <p class="text-xs sm:text-sm text-slate-500 font-medium max-w-xl mx-auto">Monitoring Workload Analysis (WOLA), efisiensi jam kerja murni, & headcount planning real-time</p>
+        </header>
+
+        <!-- TOOLBAR: FILTER PERIODE, LOGIN ADMIN, ORDER MENDADAK, PANDUAN BOBOT, & REKAP WA -->
+        <div class="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-slate-200/80 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 transition-all">
+            <!-- Filter Periode -->
+            <div class="flex items-center gap-3 bg-slate-50 p-1.5 sm:p-2 rounded-xl border border-slate-200/70 w-full md:w-auto">
+                <label for="monthFilter" class="font-semibold text-xs sm:text-sm text-slate-700 pl-2 whitespace-nowrap flex items-center gap-1.5">
+                    <span>📅</span> Periode:
+                </label>
+                <select id="monthFilter" onchange="renderDashboard()" class="w-full md:w-auto bg-white border border-slate-200 rounded-lg px-3 py-1.5 font-semibold text-xs sm:text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition shadow-sm">
+                    <option value="">Memuat data...</option>
+                </select>
+            </div>
+            
+            <!-- Action Buttons Group -->
+            <div class="flex flex-wrap items-center gap-2.5 sm:gap-3 w-full md:w-auto justify-start md:justify-end">
+                <!-- Status Login Admin -->
+                <div id="adminAuthBtnContainer" class="w-full sm:w-auto">
+                    <button id="adminAuthBtn" onclick="checkAdminAccess()" class="w-full sm:w-auto bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 border border-slate-300/80 font-bold px-3.5 py-2 rounded-xl text-xs sm:text-sm transition flex items-center justify-center gap-1.5 shadow-sm">
+                        🔒 Login Admin
+                    </button>
+                </div>
+
+                <!-- TOMBOL TAMBAH ORDER MENDADAK -->
+                <button onclick="openNewOrderModal()" class="w-full sm:w-auto bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold px-3.5 py-2 rounded-xl transition flex items-center justify-center gap-2 text-xs sm:text-sm shadow-sm">
+                    <span>⚡</span> + Order Mendadak
+                </button>
+
+                <!-- TOMBOL PANDUAN BOBOT POIN -->
+                <button onclick="openBobotModal()" class="w-full sm:w-auto bg-purple-50 hover:bg-purple-100 active:bg-purple-200 text-purple-700 border border-purple-200/80 font-bold px-3.5 py-2 rounded-xl transition flex items-center justify-center gap-2 text-xs sm:text-sm shadow-sm">
+                    <span>📘</span> Panduan Bobot & WOLA
+                </button>
+
+                <!-- Tombol Rekap WA -->
+                <button onclick="copyRekapWA()" class="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold px-4 py-2 rounded-xl transition flex items-center justify-center gap-2 text-xs sm:text-sm shadow-sm">
+                    <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
+                    <span>Copy Rekap WA</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- 3 PIE CHART UTAMA -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
+            <div class="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-slate-200/80 flex flex-col justify-between">
+                <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                    <span>🍕</span> Order Per Unit
+                </h2>
+                <div class="h-56 sm:h-60 relative flex items-center justify-center">
+                    <canvas id="unitChart"></canvas>
+                </div>
+            </div>
+
+            <div class="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-slate-200/80 flex flex-col justify-between">
+                <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                    <span>🎨</span> Foto & Video vs Desain Grafis
+                </h2>
+                <div class="h-56 sm:h-60 relative flex items-center justify-center">
+                    <canvas id="kategoriChart"></canvas>
+                </div>
+            </div>
+
+            <div class="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-slate-200/80 flex flex-col justify-between">
+                <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                    <span>📹</span> Alat Dipinjam
+                </h2>
+                <div class="h-56 sm:h-60 relative flex items-center justify-center">
+                    <canvas id="alatChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- SECTION BEBAN KERJA & STATUS PERSONEL (WORKLOAD ANALYSIS) -->
+        <div class="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200/80 space-y-5">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+                <h2 class="text-xs sm:text-sm font-extrabold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                    <span>👥</span> BEBAN KERJA & ANALISIS WOLA (REKAP BULANAN)
+                </h2>
+                <div class="inline-flex flex-wrap items-center gap-1.5 text-[11px] sm:text-xs text-slate-600 font-semibold bg-slate-100/80 px-3 py-1.5 rounded-full border border-slate-200/60 w-fit">
+                    <span class="text-emerald-700 font-bold">🟢 ≤15 Aman</span>
+                    <span class="text-slate-300">|</span>
+                    <span class="text-amber-700 font-bold">🟡 16–25 Peringatan</span>
+                    <span class="text-slate-300">|</span>
+                    <span class="text-rose-700 font-bold">🔴 >25 Overload</span>
+                </div>
+            </div>
+
+            <!-- EXECUTIVE WOLA SUMMARY CARDS -->
+            <div id="wolaSummaryCards" class="grid grid-cols-1 sm:grid-cols-3 gap-3"></div>
+
+            <!-- Ringkasan Poin & Jumlah Order Beban Kerja Personel -->
+            <div id="personelStats" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3 pt-2"></div>
+
+            <!-- Grafik Bar Horizontal Beban Kerja -->
+            <div class="h-60 sm:h-64 relative pt-2">
+                <canvas id="personelBarChart"></canvas>
+            </div>
+
+            <!-- PANEL ANALISA HASIL & REKOMENDASI -->
+            <div id="wolaInsightsPanel" class="pt-3"></div>
+        </div>
+
+        <!-- TABEL ORDER MASUK -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
+            <div class="p-4 sm:p-5 bg-slate-900 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                <h2 class="text-base sm:text-lg font-bold flex items-center gap-2">
+                    <span>📋</span> Daftar Order Masuk
+                </h2>
+                <span class="text-[11px] sm:text-xs bg-slate-800 text-slate-300 px-3 py-1 rounded-full font-medium border border-slate-700/60 w-fit">
+                    🔐 Hak Akses Admin: leonardus.yesi@sekolahathalia.sch.id
+                </span>
+            </div>
+            
+            <!-- SEARCH & FILTER TOOLBAR -->
+            <div class="p-3 bg-slate-50 border-b border-slate-200/80 flex flex-col sm:flex-row gap-2 justify-between items-center">
+                <div class="relative w-full sm:w-80">
+                    <input type="text" id="searchTableInput" oninput="renderDashboard()" placeholder="🔍 Cari kegiatan, unit, PIC, atau petugas..." 
+                        class="w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-2xs">
+                </div>
+                <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
+                    <label for="statusFilter" class="text-xs font-bold text-slate-600 whitespace-nowrap">Filter Status:</label>
+                    <select id="statusFilter" onchange="renderDashboard()" class="bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-2xs">
+                        <option value="ALL">Semua Status</option>
+                        <option value="In Progress">⏳ In Progress</option>
+                        <option value="Done">✅ Done</option>
+                        <option value="Canceled">❌ Canceled</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse min-w-[640px]">
+                    <thead>
+                        <tr class="border-b border-slate-200/80 text-[11px] font-bold text-slate-400 uppercase tracking-wider bg-slate-50/70">
+                            <th class="p-3.5 sm:p-4 pl-4 sm:pl-6 w-1/4">TGL/WAKTU/UNIT</th>
+                            <th class="p-3.5 sm:p-4 w-2/5">DETAIL KEGIATAN</th>
+                            <th class="p-3.5 sm:p-4 w-1/4">PILIH PERSONEL</th>
+                            <th class="p-3.5 sm:p-4 text-center w-1/6">STATUS</th>
+                        </tr>
+                    </thead>
+                    <tbody id="orderTable" class="divide-y divide-slate-100 text-xs sm:text-sm">
+                        <tr><td colspan="4" class="text-center p-8 text-slate-400 font-medium">Memuat data orderan...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- KARTU JADWAL TIM -->
+        <div class="space-y-4">
+            <h2 class="text-xl sm:text-2xl font-bold text-slate-900 border-l-4 border-blue-600 pl-3.5">KARTU JADWAL TIM</h2>
+            <div id="scheduleCards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6"></div>
+        </div>
+
+    </div>
+
+    <!-- MODAL POP-UP: EDIT ORDER & SUB-TUGAS (UPDATE) -->
+    <div id="editOrderModal" class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-3 sm:p-5 transition-all">
+        <div class="bg-white w-full max-w-xl rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[90vh] animate-in fade-in zoom-in duration-200">
+            <div class="bg-slate-900 text-white p-4 sm:p-5 flex justify-between items-center shrink-0">
+                <div class="flex items-center gap-2.5">
+                    <span class="text-xl sm:text-2xl">✏️</span>
+                    <div>
+                        <h3 class="font-bold text-base sm:text-lg leading-tight">Edit Order / Sub-Tugas</h3>
+                        <p class="text-[11px] sm:text-xs text-slate-300 mt-0.5">Ubah rincian kegiatan, bobot poin, personel bertugas, atau status</p>
+                    </div>
+                </div>
+                <button onclick="closeEditOrderModal()" class="text-slate-400 hover:text-white text-2xl font-bold px-2 py-1 rounded-lg transition">&times;</button>
+            </div>
+            <div class="p-4 sm:p-6 overflow-y-auto space-y-4 text-slate-700 text-xs sm:text-sm">
+                
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div class="space-y-1.5">
+                        <label class="font-bold text-slate-800 block text-xs">Tanggal Penugasan:</label>
+                        <input type="date" id="editOrderTglInput" 
+                            class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm">
+                    </div>
+                    <div class="space-y-1.5">
+                        <label class="font-bold text-slate-800 block text-xs">Unit Pemohon:</label>
+                        <input type="text" id="editOrderUnitInput" placeholder="misal: SD, SMP, Marketing..." 
+                            class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm">
+                    </div>
+                </div>
+
+                <div class="space-y-1.5">
+                    <label class="font-bold text-slate-800 block text-xs">Nama Kegiatan / Sub-Tugas:</label>
+                    <input type="text" id="editOrderKegiatanInput" placeholder="Nama kegiatan atau sub-tugas..." 
+                        class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm">
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div class="space-y-1.5">
+                        <label class="font-bold text-slate-800 block text-xs">PIC Pemohon:</label>
+                        <input type="text" id="editOrderPicInput" placeholder="Nama PIC..." 
+                            class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm">
+                    </div>
+                    <div class="space-y-1.5">
+                        <label class="font-bold text-slate-800 block text-xs">Jenis Pekerjaan:</label>
+                        <select id="editOrderJenisInput" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm">
+                            <option value="Desain Grafis">Desain Grafis (Flyer, Spanduk, Post)</option>
+                            <option value="Foto dan Video">Foto dan Video (Liputan/Dokumentasi)</option>
+                            <option value="Editing Video">Editing Video / Post-Production</option>
+                            <option value="Layout Buku">Layout Buku / Publication</option>
+                            <option value="Lainnya">Lainnya</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div class="space-y-1.5">
+                        <label class="font-bold text-slate-800 block text-xs">Bobot Poin WOLA (1 Poin = 2 Jam Murni):</label>
+                        <input type="number" id="editOrderBobotInput" min="0.5" step="0.5" max="50" value="1" 
+                            class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm">
+                    </div>
+                    <div class="space-y-1.5">
+                        <label class="font-bold text-slate-800 block text-xs">Status Penugasan:</label>
+                        <select id="editOrderStatusInput" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm">
+                            <option value="In Progress">⏳ In Progress</option>
+                            <option value="Done">✅ Done</option>
+                            <option value="Canceled">❌ Canceled</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="space-y-1.5">
+                    <label class="font-bold text-slate-800 block text-xs">Pilih Personel Bertugas:</label>
+                    <div id="editOrderPetugasContainer" class="flex flex-wrap gap-1.5 pt-1"></div>
+                </div>
+
+                <div class="space-y-1.5">
+                    <label class="font-bold text-slate-800 block text-xs">Detail / Catatan Tambahan (Opsional):</label>
+                    <textarea id="editOrderDetailInput" rows="2" placeholder="Detail spesifik kegiatan..." 
+                        class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm"></textarea>
+                </div>
+            </div>
+            <div class="bg-slate-50 p-3.5 sm:p-4 border-t border-slate-100 flex items-center justify-between gap-2 shrink-0">
+                <button onclick="deleteOrderAdmin(currentEditRowId)" class="bg-rose-100 hover:bg-rose-200 active:bg-rose-300 text-rose-700 font-bold px-3.5 py-2 rounded-xl text-xs sm:text-sm transition flex items-center gap-1.5 border border-rose-300">
+                    <span>🗑️</span> Hapus
+                </button>
+                <div class="flex items-center gap-2">
+                    <button onclick="closeEditOrderModal()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold px-4 py-2 rounded-xl text-xs sm:text-sm transition">
+                        Batal
+                    </button>
+                    <button onclick="saveEditOrder()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-5 py-2 rounded-xl text-xs sm:text-sm transition shadow-sm flex items-center gap-1.5">
+                        <span>💾</span> Simpan Perubahan
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL POP-UP: TAMBAH ORDER MENDADAK (AD-HOC) -->
+    <div id="newOrderModal" class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-3 sm:p-5 transition-all">
+        <div class="bg-white w-full max-w-xl rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[90vh] animate-in fade-in zoom-in duration-200">
+            <div class="bg-slate-900 text-white p-4 sm:p-5 flex justify-between items-center shrink-0">
+                <div class="flex items-center gap-2.5">
+                    <span class="text-xl sm:text-2xl">⚡</span>
+                    <div>
+                        <h3 class="font-bold text-base sm:text-lg leading-tight">Tambah Order Mendadak (Ad-Hoc)</h3>
+                        <p class="text-[11px] sm:text-xs text-slate-300 mt-0.5">Catat penugasan interupsi/mendadak agar estimasi beban kerja WOLA tetap akurat</p>
+                    </div>
+                </div>
+                <button onclick="closeNewOrderModal()" class="text-slate-400 hover:text-white text-2xl font-bold px-2 py-1 rounded-lg transition">&times;</button>
+            </div>
+            <div class="p-4 sm:p-6 overflow-y-auto space-y-4 text-slate-700 text-xs sm:text-sm">
+                
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div class="space-y-1.5">
+                        <label class="font-bold text-slate-800 block text-xs">Tanggal Penugasan:</label>
+                        <input type="date" id="newOrderTglInput" 
+                            class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm">
+                    </div>
+                    <div class="space-y-1.5">
+                        <label class="font-bold text-slate-800 block text-xs">Unit Pemohon:</label>
+                        <input type="text" id="newOrderUnitInput" placeholder="misal: SD, SMP, Marketing, Yayasan..." 
+                            class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm">
+                    </div>
+                </div>
+
+                <div class="space-y-1.5">
+                    <label class="font-bold text-slate-800 block text-xs">Nama Kegiatan / Order Mendadak:</label>
+                    <input type="text" id="newOrderKegiatanInput" placeholder="misal: Desain Spanduk Mendadak Open House" 
+                        class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm">
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div class="space-y-1.5">
+                        <label class="font-bold text-slate-800 block text-xs">PIC Pemohon:</label>
+                        <input type="text" id="newOrderPicInput" placeholder="misal: Pak Andi, Bu Maria..." 
+                            class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm">
+                    </div>
+                    <div class="space-y-1.5">
+                        <label class="font-bold text-slate-800 block text-xs">Jenis Pekerjaan:</label>
+                        <select id="newOrderJenisInput" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm">
+                            <option value="Desain Grafis">Desain Grafis (Flyer, Spanduk, Post)</option>
+                            <option value="Foto dan Video">Foto dan Video (Liputan/Dokumentasi)</option>
+                            <option value="Editing Video">Editing Video / Post-Production</option>
+                            <option value="Layout Buku">Layout Buku / Publication</option>
+                            <option value="Lainnya">Lainnya</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="space-y-1.5">
+                    <label class="font-bold text-slate-800 block text-xs">Bobot Poin WOLA (1 Poin = 2 Jam Murni):</label>
+                    <input type="number" id="newOrderBobotInput" min="0.5" step="0.5" max="50" value="1" 
+                        class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm">
+                </div>
+
+                <div class="space-y-1.5">
+                    <label class="font-bold text-slate-800 block text-xs">Pilih Personel Bertugas:</label>
+                    <div id="newOrderPetugasContainer" class="flex flex-wrap gap-1.5 pt-1"></div>
+                </div>
+
+                <div class="space-y-1.5">
+                    <label class="font-bold text-slate-800 block text-xs">Detail / Catatan Tambahan (Opsional):</label>
+                    <textarea id="newOrderDetailInput" rows="2" placeholder="Catatan spesifik mengenai order mendadak ini..." 
+                        class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm"></textarea>
+                </div>
+            </div>
+            <div class="bg-slate-50 p-3.5 sm:p-4 border-t border-slate-100 flex justify-end gap-2 shrink-0">
+                <button onclick="closeNewOrderModal()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold px-4 py-2 rounded-xl text-xs sm:text-sm transition">
+                    Batal
+                </button>
+                <button onclick="saveNewOrder()" class="bg-amber-600 hover:bg-amber-700 text-white font-bold px-5 py-2 rounded-xl text-xs sm:text-sm transition shadow-sm flex items-center gap-1.5">
+                    <span>⚡</span> Simpan Order Mendadak
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL POP-UP: PANDUAN PENENTUAN BOBOT POIN & PRINSIP WOLA -->
+    <div id="bobotModal" class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-3 sm:p-5 transition-all">
+        <div class="bg-white w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[90vh] animate-in fade-in zoom-in duration-200">
+            <div class="bg-slate-900 text-white p-4 sm:p-5 flex justify-between items-center shrink-0">
+                <div class="flex items-center gap-2.5">
+                    <span class="text-xl sm:text-2xl">📘</span>
+                    <div>
+                        <h3 class="font-bold text-base sm:text-lg leading-tight">Panduan Bobot Poin & Metodologi Workload Analysis (WOLA)</h3>
+                        <p class="text-[11px] sm:text-xs text-slate-300 mt-0.5">Penilaian berbasis Jam Kerja Efektif Murni, Pengerjaan Paralel, & Project Breakdown</p>
+                    </div>
+                </div>
+                <button onclick="closeBobotModal()" class="text-slate-400 hover:text-white text-2xl font-bold px-2 py-1 rounded-lg transition">&times;</button>
+            </div>
+            
+            <div class="p-4 sm:p-6 overflow-y-auto space-y-5 text-slate-700 text-xs sm:text-sm">
+                
+                <!-- 1. PRINSIP UTAMA RASIO POIN WOLA -->
+                <div class="bg-blue-50/80 p-4 rounded-xl border border-blue-200/80 space-y-2">
+                    <h4 class="font-extrabold text-blue-900 text-sm flex items-center gap-2">
+                        <span>🎯</span> 1. Standar Konversi Poin WOLA:
+                    </h4>
+                    <p class="text-xs text-blue-800 leading-relaxed">
+                        <strong>1 POIN WOLA = 2 JAM KERJA EFEKTIF MURNI</strong>. Tidak ada batasan maksimal 4 poin. Bobot poin fleksibel mengikuti akumulasi waktu riil yang benar-benar dialokasikan desainer/personel.
+                    </p>
+                </div>
+
+                <!-- 2. KLASIFIKASI PEKERJAAN & PENANGANAN PROYEK PANJANG -->
+                <div class="space-y-3">
+                    <h4 class="font-extrabold text-slate-900 text-sm sm:text-base border-b border-slate-200 pb-2 flex items-center gap-2">
+                        <span>📚</span> 2. Proyek Panjang & Multi-Hari vs Tugas Rutin Singkat
+                    </h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80 space-y-1.5">
+                            <span class="font-bold text-slate-900 block text-xs">⚡ Tugas Rutin / Durasi Pasti (Tanpa Breakdown)</span>
+                            <p class="text-[11px] text-slate-600 leading-relaxed">
+                                Pekerjaan tunggal dengan waktu pasti (&le;6 jam, contoh: Dokumentasi 2 Jam = 1 Poin, Design Poster Simple = 1.5 Poin). Langsung di-input 1 baris tanpa perlu di-breakdown.
+                            </p>
+                        </div>
+                        <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80 space-y-1.5">
+                            <span class="font-bold text-slate-900 block text-xs">📖 Proyek Kompleks & Multi-Hari (Layout Buku, Video Profil)</span>
+                            <p class="text-[11px] text-slate-600 leading-relaxed">
+                                Dihitung berdasarkan <strong>total akumulasi jam kerja efektif</strong> (jumlah halaman, kompleksitas, revisi). Gunakan fitur <code>➕ Sub-Tugas</code> untuk memecah per milestone (misal: Draf DUMMY, Layout Isi, Final Proofing).
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. PENGERJAAN PARALEL & INTERUPSI WORKLOAD -->
+                <div class="space-y-3">
+                    <h4 class="font-extrabold text-slate-900 text-sm sm:text-base border-b border-slate-200 pb-2 flex items-center gap-2">
+                        <span>🔀</span> 3. Pengerjaan Paralel & Pekerjaan Mendadak (Interupsi)
+                    </h4>
+                    <div class="space-y-2 text-xs text-slate-600 leading-relaxed bg-slate-50 p-3.5 rounded-xl border border-slate-200/80">
+                        <p>
+                            • <strong>Alokasi Proporsional Harian:</strong> Jika dalam 1 hari desainer mengalokasikan 4 jam untuk Layout Buku dan 3 jam untuk Desain Lain/Revisi, poin dibagi proporsional (2 Poin untuk Buku, 1.5 Poin untuk Desain Lain). Poin TIDAK mengasumsikan desainer bekerja 100% pada 1 buku sepanjang hari.
+                        </p>
+                        <p>
+                            • <strong>Catatan Order Mendadak:</strong> Pekerjaan mendadak/revisi di luar rencana WAJIB dicatat sebagai <strong>baris order baru</strong>. Ini menjaga agar estimasi awal proyek utama tetap akurat dan lonjakan kerja tambahan terhitung sah di WOLA.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- 4. PENANGANAN KEGIATAN MENGINAP / LIVE-IN -->
+                <div class="space-y-3">
+                    <h4 class="font-extrabold text-slate-900 text-sm sm:text-base border-b border-slate-200 pb-2 flex items-center gap-2">
+                        <span>🚌</span> 4. Dokumentasi Out-of-Town / Menginap (misal: Live-In 4 Hari 3 Malam)
+                    </h4>
+                    <div class="bg-purple-50/80 p-3.5 rounded-xl border border-purple-200/80 space-y-2 text-xs text-purple-900 leading-relaxed">
+                        <p>
+                            Perhitungan mencakup <strong>Jam Kerja Efektif Liputan (Pagi–Malam) + Waktu Perjalanan Operasional + Sorting File Awal</strong>.
+                        </p>
+                        <div class="bg-white/80 p-2.5 rounded-lg border border-purple-200 text-[11px] font-mono text-purple-950">
+                            <strong>Simulasi Live-in (4H3M):</strong><br>
+                            • Liputan & Standby: 4 hari &times; 10 jam = 40 jam<br>
+                            • Perjalanan PP: 2 &times; 4 jam = 8 jam<br>
+                            • <strong>Total Jam Efektif: 48 Jam = 24 POIN WOLA</strong> (Dapat di-input per hari @ 6 Poin/hari).
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="bg-slate-50 p-3.5 sm:p-4 border-t border-slate-100 flex justify-end shrink-0">
+                <button onclick="closeBobotModal()" class="w-full sm:w-auto bg-slate-900 hover:bg-slate-800 text-white font-bold px-5 py-2 rounded-xl text-xs sm:text-sm transition shadow-sm">
+                    Tutup Panduan
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL POP-UP: BUAT SUB-TUGAS / BARIS TURUNAN -->
+    <div id="subTaskModal" class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-3 sm:p-5 transition-all">
+        <div class="bg-white w-full max-w-xl rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[90vh] animate-in fade-in zoom-in duration-200">
+            <div class="bg-slate-900 text-white p-4 sm:p-5 flex justify-between items-center shrink-0">
+                <div class="flex items-center gap-2.5">
+                    <span class="text-xl sm:text-2xl">➕</span>
+                    <div>
+                        <h3 class="font-bold text-base sm:text-lg leading-tight">Buat Sub-Tugas / Baris Turunan</h3>
+                        <p class="text-[11px] sm:text-xs text-slate-300 mt-0.5">Pecah kegiatan utama untuk membagi beban & personel secara adil</p>
+                    </div>
+                </div>
+                <button onclick="closeSubTaskModal()" class="text-slate-400 hover:text-white text-2xl font-bold px-2 py-1 rounded-lg transition">&times;</button>
+            </div>
+            <div class="p-4 sm:p-6 overflow-y-auto space-y-4 text-slate-700 text-xs sm:text-sm">
+                <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                    <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Kegiatan Utama (Induk):</span>
+                    <span id="subTaskParentName" class="font-extrabold text-slate-900 text-sm"></span>
+                </div>
+                <div class="space-y-1.5">
+                    <label class="font-bold text-slate-800 block text-xs">Nama Sub-Tugas / Turunan:</label>
+                    <input type="text" id="subTaskKegiatanInput" placeholder="misal: Rekaman Podcast NanCeP - Editing Video" 
+                        class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm">
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div class="space-y-1.5">
+                        <label class="font-bold text-slate-800 block text-xs">Jenis Pekerjaan:</label>
+                        <select id="subTaskJenisInput" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm">
+                            <option value="Editing Video">Editing Video / Post-Production</option>
+                            <option value="Desain Grafis">Desain Grafis (Brosur, Spanduk, dll)</option>
+                            <option value="Foto dan Video">Foto dan Video (Syuting/Liputan)</option>
+                            <option value="Layout Buku">Layout Buku / Publication</option>
+                            <option value="Lainnya">Lainnya</option>
+                        </select>
+                    </div>
+                    <div class="space-y-1.5">
+                        <label class="font-bold text-slate-800 block text-xs">Bobot Poin (1 - 4):</label>
+                        <input type="number" id="subTaskBobotInput" min="1" max="20" value="2" 
+                            class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm">
+                    </div>
+                </div>
+                <div class="space-y-1.5">
+                    <label class="font-bold text-slate-800 block text-xs">Pilih Personel Bertugas:</label>
+                    <div id="subTaskPetugasContainer" class="flex flex-wrap gap-1.5 pt-1"></div>
+                </div>
+                <div class="space-y-1.5">
+                    <label class="font-bold text-slate-800 block text-xs">Detail Tambahan (Opsional):</label>
+                    <textarea id="subTaskDetailInput" rows="2" placeholder="Detail spesifik pengerjaan sub-tugas..." 
+                        class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm"></textarea>
+                </div>
+            </div>
+            <div class="bg-slate-50 p-3.5 sm:p-4 border-t border-slate-100 flex justify-end gap-2 shrink-0">
+                <button onclick="closeSubTaskModal()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold px-4 py-2 rounded-xl text-xs sm:text-sm transition">
+                    Batal
+                </button>
+                <button onclick="saveSubTask()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-5 py-2 rounded-xl text-xs sm:text-sm transition shadow-sm flex items-center gap-1.5">
+                    <span>💾</span> Simpan Sub-Tugas
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxxvr3Z8pSFI4QqCUEXppPhhqIK-IbpWCTRmSQJ0srUPo_Prl1Qa6VmmAq6F2Rn8uW3dw/exec';
+        
+        const ALLOWED_ADMIN_EMAIL = "leonardus.yesi@sekolahathalia.sch.id";
+        const ADMIN_PASSWORD = "admin123";
+
+        const TIM = ["Magang", "Dodai", "Nia", "Wahyu", "Yesi", "Indri"];
+        let allData = [];
+        
+        let unitChartObj = null;
+        let kategoriChartObj = null;
+        let personelBarChartObj = null;
+        let alatChartObj = null;
+
+        let currentParentRowId = null;
+        let currentEditRowId = null;
+        let selectedSubTaskPetugas = [];
+        let selectedNewOrderPetugas = [];
+        let selectedEditPetugas = [];
+
+        // FUNGSI EDIT ORDER / SUB-TUGAS (UPDATE & DELETE)
+        function openEditOrderModal(rowId) {
+            if (!checkAdminAccess()) return;
+            const item = allData.find(d => d.rowId === rowId);
+            if (!item) return;
+
+            currentEditRowId = rowId;
+            selectedEditPetugas = item.petugas ? [...item.petugas] : [];
+
+            document.getElementById('editOrderTglInput').value = item.tglRaw ? item.tglRaw : '';
+            document.getElementById('editOrderUnitInput').value = item.unit || '';
+            document.getElementById('editOrderKegiatanInput').value = item.kegiatan || '';
+            document.getElementById('editOrderPicInput').value = item.pic || '';
+            document.getElementById('editOrderJenisInput').value = item.jenisKerja || 'Desain Grafis';
+            document.getElementById('editOrderBobotInput').value = item.bobot || 1;
+            document.getElementById('editOrderStatusInput').value = item.status || 'In Progress';
+            document.getElementById('editOrderDetailInput').value = item.detail || '';
+
+            renderEditPetugasButtons();
+            document.getElementById('editOrderModal').classList.remove('hidden');
         }
-      }
 
-      // --- SMART READ BOBOT POIN (Utamakan Kolom AM [38], Fallback ke AK [36], AG [32]) ---
-      let bobot = 1;
-      const bobotIndices = [38, 36, 32];
-      for (let k = 0; k < bobotIndices.length; k++) {
-        let idx = bobotIndices[k];
-        if (row[idx]) {
-          let num = parseFloat(row[idx]);
-          if (!isNaN(num) && num > 0) {
-            bobot = num;
-            break;
-          }
+        function closeEditOrderModal() {
+            document.getElementById('editOrderModal').classList.add('hidden');
         }
-      }
 
-      // Fallback kata kunci jika bobot belum diisi
-      if (bobot === 1) {
-        let teksJenis = (jenisKerja + " " + detailKebutuhan + " " + infoKegiatan).toLowerCase();
-        if (teksJenis.indexOf("buku") !== -1 || teksJenis.indexOf("layout buku") !== -1 || teksJenis.indexOf("kampanye") !== -1 || teksJenis.indexOf("yearbook") !== -1) {
-          bobot = 4;
-        } else if (teksJenis.indexOf("reels") !== -1 || teksJenis.indexOf("video promosi") !== -1 || teksJenis.indexOf("karusel") !== -1 || teksJenis.indexOf("carousel") !== -1 || teksJenis.indexOf("3–10 slide") !== -1) {
-          bobot = 3;
-        } else if (teksJenis.indexOf("video") !== -1 || teksJenis.indexOf("foto") !== -1 || teksJenis.indexOf("liputan") !== -1 || teksJenis.indexOf("banner") !== -1 || teksJenis.indexOf("spanduk") !== -1 || teksJenis.indexOf("poster") !== -1) {
-          bobot = 2;
+        function renderEditPetugasButtons() {
+            const container = document.getElementById('editOrderPetugasContainer');
+            container.innerHTML = TIM.map(t => {
+                const active = selectedEditPetugas.some(p => p.toLowerCase() === t.toLowerCase());
+                return `
+                    <button type="button" onclick="toggleEditPetugas('${t}')" 
+                        class="px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${active ? 'bg-blue-600 text-white font-bold shadow-xs' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}">
+                        ${t}
+                    </button>
+                `;
+            }).join('');
         }
-      }
 
-      let parsedDate = null;
-      let rawTglStr = "";
-      let fallbackTeks = row[24] || row[8] || row[22] || row[0] || "";
-
-      const priorityIndices = [24, 8, 22, 0];
-      for (let idx of priorityIndices) {
-        if (rawRow[idx] instanceof Date && !isNaN(rawRow[idx].getTime())) {
-          parsedDate = rawRow[idx];
-          break;
+        function toggleEditPetugas(nama) {
+            const idx = selectedEditPetugas.findIndex(p => p.toLowerCase() === nama.toLowerCase());
+            if (idx > -1) selectedEditPetugas.splice(idx, 1);
+            else selectedEditPetugas.push(nama);
+            renderEditPetugasButtons();
         }
-      }
 
-      if (!parsedDate && fallbackTeks !== "") {
-        let textStr = String(fallbackTeks).trim();
-        if (textStr.includes("/")) {
-          let parts = textStr.split("/");
-          if (parts.length >= 3) {
-            let d = parseInt(parts[0], 10);
-            let m = parseInt(parts[1], 10) - 1;
-            let y = parseInt(parts[2], 10);
-            if (y < 100) y += 2000;
-            let possibleDate = new Date(y, m, d);
-            if (!isNaN(possibleDate.getTime()) && possibleDate.getDate() === d) parsedDate = possibleDate;
-          }
+        async function saveEditOrder() {
+            const kegiatanVal = document.getElementById('editOrderKegiatanInput').value.trim();
+            if (!kegiatanVal) {
+                alert("⚠️ Nama kegiatan / sub-tugas tidak boleh kosong.");
+                return;
+            }
+
+            const tglVal = document.getElementById('editOrderTglInput').value;
+            const unitVal = document.getElementById('editOrderUnitInput').value.trim();
+            const picVal = document.getElementById('editOrderPicInput').value.trim();
+            const jenisVal = document.getElementById('editOrderJenisInput').value;
+            const bobotVal = parseFloat(document.getElementById('editOrderBobotInput').value) || 1;
+            const statusVal = document.getElementById('editOrderStatusInput').value;
+            const detailVal = document.getElementById('editOrderDetailInput').value.trim();
+
+            closeEditOrderModal();
+            document.body.style.cursor = 'wait';
+
+            try {
+                const payload = {
+                    action: "updateOrder",
+                    rowId: currentEditRowId,
+                    tgl: tglVal,
+                    unit: unitVal,
+                    kegiatan: kegiatanVal,
+                    pic: picVal,
+                    jenisKerja: jenisVal,
+                    bobot: bobotVal,
+                    status: statusVal,
+                    petugasList: selectedEditPetugas,
+                    detail: detailVal
+                };
+
+                const idx = allData.findIndex(d => d.rowId === currentEditRowId);
+                if (idx !== -1) {
+                    allData[idx].kegiatan = kegiatanVal;
+                    if (tglVal) allData[idx].tglRaw = tglVal;
+                    allData[idx].unit = unitVal;
+                    allData[idx].pic = picVal;
+                    allData[idx].jenisKerja = jenisVal;
+                    allData[idx].bobot = bobotVal;
+                    allData[idx].status = statusVal;
+                    allData[idx].petugas = selectedEditPetugas;
+                    allData[idx].detail = detailVal;
+                    renderDashboard();
+                }
+
+                await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                alert("✅ Perubahan order/sub-tugas berhasil disimpan!");
+                await fetchData();
+            } catch (error) {
+                console.error("Gagal memperbarui order:", error);
+                alert("⚠️ Terjadi kesalahan saat menyimpan perubahan.");
+            } finally {
+                document.body.style.cursor = 'default';
+            }
         }
-        if (!parsedDate) {
-          let tempDate = new Date(textStr);
-          if (!isNaN(tempDate.getTime())) parsedDate = tempDate;
+
+        async function deleteOrderAdmin(rowId) {
+            if (!checkAdminAccess()) return;
+            const item = allData.find(d => d.rowId === rowId);
+            const namaKegiatan = item ? item.kegiatan : "kegiatan ini";
+
+            if (!confirm(`⚠️ Apakah Anda yakin ingin MENGHAPUS order/sub-tugas berikut?\n\n"${namaKegiatan}"`)) {
+                return;
+            }
+
+            closeEditOrderModal();
+            document.body.style.cursor = 'wait';
+
+            try {
+                allData = allData.filter(d => d.rowId !== rowId);
+                renderDashboard();
+
+                await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: "deleteOrder", rowId: rowId })
+                });
+
+                alert("🗑️ Order/Sub-Tugas berhasil dihapus!");
+                await fetchData();
+            } catch (error) {
+                console.error("Gagal menghapus order:", error);
+                alert("⚠️ Terjadi kesalahan saat menghapus order.");
+            } finally {
+                document.body.style.cursor = 'default';
+            }
         }
-      }
 
-      let bulanTahun = "Tanpa Tanggal", sortValue = 0, tglFormatted = fallbackTeks || "Tanpa Tgl", hari = "";
+        // FUNGSI TAMBAH ORDER MENDADAK
+        function openNewOrderModal() {
+            if (!checkAdminAccess()) return;
+            selectedNewOrderPetugas = [];
+            
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('newOrderTglInput').value = today;
+            document.getElementById('newOrderUnitInput').value = "";
+            document.getElementById('newOrderKegiatanInput').value = "";
+            document.getElementById('newOrderPicInput').value = "";
+            document.getElementById('newOrderJenisInput').value = "Desain Grafis";
+            document.getElementById('newOrderBobotInput').value = 1;
+            document.getElementById('newOrderDetailInput').value = "";
+            
+            renderNewOrderPetugasButtons();
+            document.getElementById('newOrderModal').classList.remove('hidden');
+        }
 
-      if (parsedDate instanceof Date && !isNaN(parsedDate.getTime())) {
-         const namaBulan = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
-         const namaHari = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
-         bulanTahun = namaBulan[parsedDate.getMonth()] + " " + parsedDate.getFullYear();
-         sortValue = parsedDate.getTime();
-         tglFormatted = Utilities.formatDate(parsedDate, "GMT+7", "dd MMM yyyy");
-         rawTglStr = Utilities.formatDate(parsedDate, "GMT+7", "yyyy-MM-dd");
-         hari = namaHari[parsedDate.getDay()];
-      }
+        function closeNewOrderModal() {
+            document.getElementById('newOrderModal').classList.add('hidden');
+        }
 
-      output.push({
-        rowId: i + 1,
-        unit: row[2] || "-", 
-        pic: row[3] || "-", 
-        kegiatan: infoKegiatan,
-        jenisKerja: jenisKerja,
-        detail: detailKebutuhan,
-        rincianOutput: rincianOutput,
-        kesiapanTeks: kesiapanTeks,
-        ketersediaanFoto: ketersediaanFoto,
-        linkDrive: linkDrive,
-        catatanTambahan: catatanTambahan,
-        alat: infoAlat,         
-        jamAmbil: jamAmbil,     
-        jamKembali: jamKembali, 
-        tglFormatted: tglFormatted,
-        tglRaw: rawTglStr,
-        hari: hari,
-        bulanTahun: bulanTahun,
-        sortValue: sortValue,
-        jam: row[25] || "", 
-        durasi: row[26] || "",
-        bobot: bobot,
-        petugas: petugasRaw ? petugasRaw.split(",").map(function(s) { return s.trim(); }).filter(function(s) { return s !== ""; }) : [], 
-        status: statusRaw || "In Progress" 
-      });
-    }
+        function renderNewOrderPetugasButtons() {
+            const container = document.getElementById('newOrderPetugasContainer');
+            container.innerHTML = TIM.map(t => {
+                const active = selectedNewOrderPetugas.some(p => p.toLowerCase() === t.toLowerCase());
+                return `
+                    <button type="button" onclick="toggleNewOrderPetugas('${t}')" 
+                        class="px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${active ? 'bg-amber-600 text-white font-bold shadow-xs' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}">
+                        ${t}
+                    </button>
+                `;
+            }).join('');
+        }
 
-    output.sort(function(a, b) { return a.sortValue - b.sortValue; });
-    return ContentService.createTextOutput(JSON.stringify(output)).setMimeType(ContentService.MimeType.JSON);
+        function toggleNewOrderPetugas(nama) {
+            const idx = selectedNewOrderPetugas.findIndex(p => p.toLowerCase() === nama.toLowerCase());
+            if (idx > -1) selectedNewOrderPetugas.splice(idx, 1);
+            else selectedNewOrderPetugas.push(nama);
+            renderNewOrderPetugasButtons();
+        }
 
-  } catch (error) {
-    return ContentService.createTextOutput(JSON.stringify({ status: "error", message: error.message }))
-                         .setMimeType(ContentService.MimeType.JSON);
-  }
-}
+        async function saveNewOrder() {
+            const tglVal = document.getElementById('newOrderTglInput').value;
+            const unitVal = document.getElementById('newOrderUnitInput').value.trim();
+            const kegiatanVal = document.getElementById('newOrderKegiatanInput').value.trim();
+            const picVal = document.getElementById('newOrderPicInput').value.trim();
+            const jenisVal = document.getElementById('newOrderJenisInput').value;
+            const bobotVal = parseFloat(document.getElementById('newOrderBobotInput').value) || 1;
+            const detailVal = document.getElementById('newOrderDetailInput').value.trim();
 
-function doPost(e) {
-  try {
-    const params = JSON.parse(e.postData.contents);
-    const ss = getSpreadsheet();
-    const sheet = ss.getSheets()[0];
-    
-    const action = params.action || "updateOrder";
-    
-    // ACTION 1: PEMBUATAN SUB-TUGAS / BARIS TURUNAN BARU
-    if (action === "createSubTask") {
-      const parentRowId = params.parentRowId;
-      const maxCols = Math.max(sheet.getLastColumn(), 41);
-      
-      let parentValues = sheet.getRange(parentRowId, 1, 1, maxCols).getValues()[0];
-      let newRow = [...parentValues];
-      
-      newRow[7] = params.kegiatan || (parentValues[7] + " (Sub-Tugas)"); // Col H: Nama Kegiatan
-      if (params.jenisKerja) newRow[23] = params.jenisKerja;              // Col X: Jenis Pekerjaan
-      if (params.detail) newRow[28] = params.detail;                      // Col AC: Detail
-      if (params.tglPenugasan) newRow[24] = params.tglPenugasan;          // Col Y: Tgl Penugasan
-      
-      newRow[38] = params.bobot !== undefined ? params.bobot : 1;         // Col AM (39): Bobot Poin WOLA
-      newRow[39] = params.petugasList ? params.petugasList.join(", ") : ""; // Col AN (40): Petugas
-      newRow[40] = params.status || "In Progress";                        // Col AO (41): Status
-      
-      sheet.appendRow(newRow);
-      const newRowId = sheet.getLastRow();
-      
-      return ContentService.createTextOutput(JSON.stringify({ 
-        status: "success", 
-        newRowId: newRowId,
-        message: "Sub-tugas berhasil dibuat!" 
-      })).setMimeType(ContentService.MimeType.JSON);
-    }
-    
-    // ACTION 2: PENAMBAHAN ORDER MENDADAK BARU (AD-HOC)
-    else if (action === "createOrder") {
-      const maxCols = 41;
-      let newRow = new Array(maxCols).fill("");
-      
-      newRow[2] = params.unit || "Lainnya";                               // Col C: Unit
-      newRow[3] = params.pic || "Mendadak";                               // Col D: PIC
-      newRow[7] = params.kegiatan || "Order Mendadak";                   // Col H: Nama Kegiatan
-      newRow[23] = params.jenisKerja || "Desain Grafis";                  // Col X: Jenis Pekerjaan
-      newRow[24] = params.tgl || new Date();                              // Col Y: Tanggal
-      newRow[28] = params.detail || "";                                   // Col AC: Detail
-      newRow[38] = params.bobot !== undefined ? params.bobot : 1;         // Col AM (39): Bobot Poin WOLA
-      newRow[39] = params.petugasList ? params.petugasList.join(", ") : ""; // Col AN (40): Petugas
-      newRow[40] = params.status || "In Progress";                        // Col AO (41): Status
-      
-      sheet.appendRow(newRow);
-      return ContentService.createTextOutput(JSON.stringify({ 
-        status: "success", 
-        newRowId: sheet.getLastRow(),
-        message: "Order Mendadak berhasil dibuat!" 
-      })).setMimeType(ContentService.MimeType.JSON);
-    }
+            if (!kegiatanVal) {
+                alert("⚠️ Nama kegiatan / order mendadak tidak boleh kosong.");
+                return;
+            }
 
-    // ACTION 3: HAPUS ORDER / SUB-TUGAS (DELETE)
-    else if (action === "deleteOrder") {
-      const rowId = parseInt(params.rowId, 10);
-      if (rowId && rowId > 1) {
-        sheet.deleteRow(rowId);
-        return ContentService.createTextOutput(JSON.stringify({ 
-          status: "success", 
-          message: "Order berhasil dihapus!" 
-        })).setMimeType(ContentService.MimeType.JSON);
-      } else {
-        throw new Error("Row ID tidak valid untuk dihapus.");
-      }
-    }
+            closeNewOrderModal();
+            document.body.style.cursor = 'wait';
 
-    // ACTION 4: EDIT / SINKRONISASI POIN, PETUGAS, STATUS & RINCIAN ORDER (UPDATE)
-    else {
-      const rowId = parseInt(params.rowId, 10);
-      if (!rowId || rowId <= 1) throw new Error("Row ID tidak valid.");
+            try {
+                const payload = {
+                    action: "createOrder",
+                    tgl: tglVal,
+                    unit: unitVal || "Lainnya",
+                    kegiatan: kegiatanVal,
+                    pic: picVal || "Mendadak",
+                    jenisKerja: jenisVal,
+                    bobot: bobotVal,
+                    petugasList: selectedNewOrderPetugas,
+                    detail: detailVal,
+                    status: "In Progress"
+                };
 
-      const petugasList = Array.isArray(params.petugasList) ? params.petugasList.join(", ") : (params.petugasList || ""); 
-      const statusKerja = params.status || "In Progress"; 
-      const bobotPoin = params.bobot !== undefined ? params.bobot : 1;
+                await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
 
-      // Update Kolom Utama WOLA
-      sheet.getRange(rowId, 39).setValue(bobotPoin);   // Kolom AM (39) = Bobot Poin WOLA
-      sheet.getRange(rowId, 40).setValue(petugasList); // Kolom AN (40) = Petugas Bertugas
-      sheet.getRange(rowId, 41).setValue(statusKerja); // Kolom AO (41) = Status
+                alert("⚡ Order Mendadak berhasil ditambahkan! Memperbarui data dashboard...");
+                await fetchData();
+            } catch (error) {
+                console.error("Gagal menambahkan order mendadak:", error);
+                alert("⚠️ Terjadi kesalahan saat menyimpan order mendadak.");
+            } finally {
+                document.body.style.cursor = 'default';
+            }
+        }
 
-      // Update Rincian Opsional jika dikirim dari Form Edit
-      if (params.kegiatan) sheet.getRange(rowId, 8).setValue(params.kegiatan);  // Col H (8) = Nama Kegiatan
-      if (params.unit) sheet.getRange(rowId, 3).setValue(params.unit);          // Col C (3) = Unit Pemohon
-      if (params.pic) sheet.getRange(rowId, 4).setValue(params.pic);            // Col D (4) = PIC Pemohon
-      if (params.jenisKerja) sheet.getRange(rowId, 24).setValue(params.jenisKerja); // Col X (24) = Jenis Pekerjaan
-      if (params.detail) sheet.getRange(rowId, 29).setValue(params.detail);     // Col AC (29) = Detail
-      if (params.tgl) sheet.getRange(rowId, 25).setValue(params.tgl);           // Col Y (25) = Tanggal Penugasan
+        function openBobotModal() { document.getElementById('bobotModal').classList.remove('hidden'); }
+        function closeBobotModal() { document.getElementById('bobotModal').classList.add('hidden'); }
 
-      return ContentService.createTextOutput(JSON.stringify({ 
-        status: "success", 
-        message: "Data order berhasil diperbarui!" 
-      })).setMimeType(ContentService.MimeType.JSON);
-    }
-  } catch (error) {
-    return ContentService.createTextOutput(JSON.stringify({ status: "error", message: error.message }))
-                         .setMimeType(ContentService.MimeType.JSON);
-  }
-}
+        function openSubTaskModal(rowId) {
+            if (!checkAdminAccess()) return;
+            const parent = allData.find(d => d.rowId === rowId);
+            if (!parent) return;
+            
+            currentParentRowId = rowId;
+            selectedSubTaskPetugas = [];
+            
+            document.getElementById('subTaskParentName').innerText = parent.kegiatan;
+            document.getElementById('subTaskKegiatanInput').value = parent.kegiatan + " - ";
+            document.getElementById('subTaskJenisInput').value = "Editing Video";
+            document.getElementById('subTaskBobotInput').value = 2;
+            document.getElementById('subTaskDetailInput').value = "";
+            
+            renderSubTaskPetugasButtons();
+            document.getElementById('subTaskModal').classList.remove('hidden');
+        }
+
+        function closeSubTaskModal() { document.getElementById('subTaskModal').classList.add('hidden'); }
+
+        function renderSubTaskPetugasButtons() {
+            const container = document.getElementById('subTaskPetugasContainer');
+            container.innerHTML = TIM.map(t => {
+                const active = selectedSubTaskPetugas.some(p => p.toLowerCase() === t.toLowerCase());
+                return `
+                    <button type="button" onclick="toggleSubTaskPetugas('${t}')" 
+                        class="px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${active ? 'bg-blue-600 text-white font-bold shadow-xs' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}">
+                        ${t}
+                    </button>
+                `;
+            }).join('');
+        }
+
+        function toggleSubTaskPetugas(nama) {
+            const idx = selectedSubTaskPetugas.findIndex(p => p.toLowerCase() === nama.toLowerCase());
+            if (idx > -1) selectedSubTaskPetugas.splice(idx, 1);
+            else selectedSubTaskPetugas.push(nama);
+            renderSubTaskPetugasButtons();
+        }
+
+        async function saveSubTask() {
+            const kegiatanBaru = document.getElementById('subTaskKegiatanInput').value.trim();
+            if (!kegiatanBaru) {
+                alert("⚠️ Nama sub-tugas tidak boleh kosong.");
+                return;
+            }
+            
+            const jenisKerja = document.getElementById('subTaskJenisInput').value;
+            const bobot = parseFloat(document.getElementById('subTaskBobotInput').value) || 1;
+            const detail = document.getElementById('subTaskDetailInput').value.trim();
+            
+            closeSubTaskModal();
+            document.body.style.cursor = 'wait';
+            
+            try {
+                const payload = {
+                    action: "createSubTask",
+                    parentRowId: currentParentRowId,
+                    kegiatan: kegiatanBaru,
+                    jenisKerja: jenisKerja,
+                    bobot: bobot,
+                    detail: detail,
+                    petugasList: selectedSubTaskPetugas,
+                    status: "In Progress"
+                };
+
+                await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                alert("✅ Sub-Tugas berhasil dibuat! Memperbarui data dashboard...");
+                await fetchData();
+            } catch (error) {
+                console.error("Gagal membuat sub-tugas:", error);
+                alert("⚠️ Terjadi kesalahan saat membuat sub-tugas.");
+            } finally {
+                document.body.style.cursor = 'default';
+            }
+        }
+
+        function checkAdminAccess() {
+            let loggedInEmail = sessionStorage.getItem('adminEmail');
+            if (loggedInEmail && loggedInEmail.toLowerCase() === ALLOWED_ADMIN_EMAIL.toLowerCase()) return true;
+
+            const emailInput = prompt("📧 MASUKKAN EMAIL ADMIN AKUN:");
+            if (emailInput === null) return false;
+            if (emailInput.trim().toLowerCase() !== ALLOWED_ADMIN_EMAIL.toLowerCase()) {
+                alert(`❌ Akses Ditolak! Email '${emailInput}' tidak memiliki hak akses Admin.`);
+                return false;
+            }
+
+            const passInput = prompt("🔐 MASUKKAN PASSWORD ADMIN:");
+            if (passInput === null) return false;
+            if (passInput !== ADMIN_PASSWORD) {
+                alert("❌ Password salah! Akses ditolak.");
+                return false;
+            }
+
+            sessionStorage.setItem('adminEmail', emailInput.trim().toLowerCase());
+            updateAdminUI();
+            alert("✅ Login Admin Berhasil!");
+            return true;
+        }
+
+        function logoutAdmin() {
+            sessionStorage.removeItem('adminEmail');
+            updateAdminUI();
+            alert("🔒 Anda telah logout dari mode Admin.");
+        }
+
+        function updateAdminUI() {
+            const btnContainer = document.getElementById('adminAuthBtnContainer');
+            const loggedInEmail = sessionStorage.getItem('adminEmail');
+            
+            if (loggedInEmail && loggedInEmail.toLowerCase() === ALLOWED_ADMIN_EMAIL.toLowerCase()) {
+                btnContainer.innerHTML = `
+                    <div class="w-full sm:w-auto bg-emerald-50 border border-emerald-200 text-emerald-800 font-bold px-3 py-1.5 rounded-xl text-xs flex items-center justify-between sm:justify-start gap-2 shadow-sm">
+                        <span class="truncate">🟢 Admin: ${loggedInEmail}</span>
+                        <button onclick="logoutAdmin()" class="underline text-rose-600 hover:text-rose-800 font-extrabold shrink-0">Logout</button>
+                    </div>
+                `;
+            } else {
+                btnContainer.innerHTML = `
+                    <button id="adminAuthBtn" onclick="checkAdminAccess()" class="w-full sm:w-auto bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300/80 font-bold px-3.5 py-2 rounded-xl text-xs sm:text-sm transition flex items-center justify-center gap-1.5 shadow-sm">
+                        🔒 Login Admin
+                    </button>
+                `;
+            }
+        }
+
+        function getWorkloadColor(points) {
+            if (points <= 15) return '#10b981';
+            if (points <= 25) return '#f59e0b';
+            return '#ef4444';
+        }
+
+        function getWorkloadBadgeStyle(points) {
+            if (points <= 15) return 'bg-emerald-50 text-emerald-700 border-emerald-200/80';
+            if (points <= 25) return 'bg-amber-50 text-amber-700 border-amber-200/80';
+            return 'bg-rose-50 text-rose-700 border-rose-200/80';
+        }
+
+        function isPeminjamanAlat(item) {
+            const jenis = (item.jenisKerja || '').toLowerCase();
+            const kegiatan = (item.kegiatan || '').toLowerCase();
+            const alat = (item.alat || '').trim();
+            const jamAmbil = (item.jamAmbil || '').trim();
+
+            if (jenis.includes("peminjaman") || jenis.includes("pinjam alat")) return true;
+            if (kegiatan.includes("peminjaman") || kegiatan.includes("alat saja")) return true;
+            if (alat !== "" && alat !== "-" && (jenis === "-" || jenis === "" || jenis.includes("alat"))) return true;
+            if (jamAmbil !== "" && jamAmbil !== "-" && (jenis === "-" || jenis === "")) return true;
+
+            return false;
+        }
+
+        async function fetchData() {
+            try {
+                const res = await fetch(SCRIPT_URL);
+                allData = await res.json();
+                if (allData.status === "error") throw new Error(allData.message);
+
+                localStorage.setItem('penugasanDataCache', JSON.stringify(allData));
+                initMonthFilter();
+                updateAdminUI();
+                renderDashboard();
+            } catch (err) {
+                console.warn("Gagal fetch data baru, mencoba cache local...", err);
+                const cached = localStorage.getItem('penugasanDataCache');
+                if (cached) {
+                    allData = JSON.parse(cached);
+                    initMonthFilter();
+                    updateAdminUI();
+                    renderDashboard();
+                } else {
+                    document.getElementById('orderTable').innerHTML = `<tr><td colspan="4" class="text-center p-8 text-red-500 font-semibold">Gagal terhubung ke Google Sheets.</td></tr>`;
+                }
+            }
+        }
+
+        function initMonthFilter() {
+            const months = [...new Set(allData.map(item => item.bulanTahun))].filter(b => b && b !== "Tanpa Tanggal");
+            const select = document.getElementById('monthFilter');
+            const currentSelected = select.value;
+            select.innerHTML = '';
+            
+            months.forEach(m => {
+                const opt = document.createElement('option');
+                opt.value = m;
+                opt.textContent = m;
+                select.appendChild(opt);
+            });
+
+            if (currentSelected && months.includes(currentSelected)) {
+                select.value = currentSelected;
+            } else if (months.length > 0) {
+                select.value = months[months.length - 1]; 
+            }
+        }
+
+        function renderDashboard() {
+            const selectedMonth = document.getElementById('monthFilter').value;
+            let filteredData = allData.filter(item => item.bulanTahun === selectedMonth);
+
+            const searchInput = document.getElementById('searchTableInput') ? document.getElementById('searchTableInput').value.toLowerCase().trim() : '';
+            const statusFilterVal = document.getElementById('statusFilter') ? document.getElementById('statusFilter').value : 'ALL';
+
+            if (statusFilterVal !== 'ALL') {
+                filteredData = filteredData.filter(item => item.status === statusFilterVal);
+            }
+
+            if (searchInput !== '') {
+                filteredData = filteredData.filter(item => {
+                    const keg = (item.kegiatan || '').toLowerCase();
+                    const unt = (item.unit || '').toLowerCase();
+                    const pic = (item.pic || '').toLowerCase();
+                    const pet = (item.petugas || []).join(' ').toLowerCase();
+                    const jns = (item.jenisKerja || '').toLowerCase();
+                    return keg.includes(searchInput) || unt.includes(searchInput) || pic.includes(searchInput) || pet.includes(searchInput) || jns.includes(searchInput);
+                });
+            }
+
+            renderUnitChart(filteredData);
+            renderKategoriChart(filteredData);
+            renderPersonelBarChart(filteredData);
+            renderAlatChart(filteredData);
+            renderPersonelStats(filteredData);
+            renderTable(filteredData);
+            renderScheduleCards(filteredData);
+        }
+
+        function renderUnitChart(data) {
+            const unitCounts = {};
+            data.forEach(d => {
+                const u = d.unit || 'Lainnya';
+                unitCounts[u] = (unitCounts[u] || 0) + 1;
+            });
+
+            const ctx = document.getElementById('unitChart').getContext('2d');
+            if (unitChartObj) unitChartObj.destroy();
+
+            unitChartObj = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: Object.keys(unitCounts),
+                    datasets: [{
+                        data: Object.values(unitCounts),
+                        backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#64748b']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10, family: 'Inter' } } } }
+                }
+            });
+        }
+
+        function renderKategoriChart(data) {
+            const labelFotoVideo = 'Foto & Video';
+            const labelDesain = 'Desain Grafis';
+
+            const kategoriCounts = { [labelFotoVideo]: 0, [labelDesain]: 0 };
+
+            data.forEach(d => {
+                if (d.status === 'Canceled') return;
+                const jenisVal = (d.jenisKerja || '').trim();
+                if (jenisVal.includes("Foto dan Video") || (jenisVal.toLowerCase().includes("foto") && !isPeminjamanAlat(d))) {
+                    kategoriCounts[labelFotoVideo]++;
+                } else if (jenisVal.includes("Desain Grafis") || jenisVal.toLowerCase().includes("desain") || jenisVal.toLowerCase().includes("layout")) {
+                    kategoriCounts[labelDesain]++;
+                }
+            });
+
+            const ctx = document.getElementById('kategoriChart').getContext('2d');
+            if (kategoriChartObj) kategoriChartObj.destroy();
+
+            kategoriChartObj = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: [labelFotoVideo, labelDesain],
+                    datasets: [{
+                        data: [kategoriCounts[labelFotoVideo], kategoriCounts[labelDesain]],
+                        backgroundColor: ['#3b82f6', '#8b5cf6']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10, family: 'Inter' } } } }
+                }
+            });
+        }
+
+        function renderPersonelBarChart(data) {
+            const points = {};
+            TIM.forEach(t => points[t] = 0);
+
+            data.forEach(d => {
+                if (d.status !== 'Canceled' && !isPeminjamanAlat(d)) {
+                    d.petugas.forEach(p => {
+                        const matched = TIM.find(t => t.toLowerCase() === p.toLowerCase());
+                        if (matched) points[matched] += (d.bobot || 1);
+                    });
+                }
+            });
+
+            const ctx = document.getElementById('personelBarChart').getContext('2d');
+            if (personelBarChartObj) personelBarChartObj.destroy();
+
+            const barColors = TIM.map(t => getWorkloadColor(points[t]));
+
+            personelBarChartObj = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: TIM,
+                    datasets: [{
+                        label: 'Total Poin Beban Kerja',
+                        data: TIM.map(t => points[t]),
+                        backgroundColor: barColors,
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { beginAtZero: true, ticks: { precision: 0, font: { family: 'Inter' } } },
+                        y: { ticks: { font: { family: 'Inter', weight: '600' } } }
+                    }
+                }
+            });
+        }
+
+        function renderAlatChart(data) {
+            const alatCounts = {};
+            data.forEach(d => {
+                if (d.status !== 'Canceled' && d.alat && d.alat !== '-' && d.alat.trim() !== '') {
+                    const items = d.alat.split(',').map(x => x.trim()).filter(x => x !== '' && x !== '-');
+                    items.forEach(a => { alatCounts[a] = (alatCounts[a] || 0) + 1; });
+                }
+            });
+
+            const ctx = document.getElementById('alatChart').getContext('2d');
+            if (alatChartObj) alatChartObj.destroy();
+
+            const labels = Object.keys(alatCounts);
+            const values = Object.values(alatCounts);
+
+            if (labels.length === 0) {
+                alatChartObj = new Chart(ctx, {
+                    type: 'pie',
+                    data: { labels: ['Tidak Ada Peminjaman Alat'], datasets: [{ data: [1], backgroundColor: ['#e2e8f0'] }] },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10, family: 'Inter' } } } } }
+                });
+                return;
+            }
+
+            alatChartObj = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: values,
+                        backgroundColor: ['#f59e0b', '#ec4899', '#8b5cf6', '#3b82f6', '#10b981', '#06b6d4', '#64748b', '#ef4444']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10, family: 'Inter' } } } }
+                }
+            });
+        }
+
+        function renderPersonelStats(data) {
+            const points = {};
+            const taskCounts = {};
+            TIM.forEach(t => {
+                points[t] = 0;
+                taskCounts[t] = 0;
+            });
+
+            data.forEach(d => {
+                if (d.status !== 'Canceled' && !isPeminjamanAlat(d)) {
+                    d.petugas.forEach(p => {
+                        const matched = TIM.find(t => t.toLowerCase() === p.toLowerCase());
+                        if (matched) {
+                            points[matched] += (d.bobot || 1);
+                            taskCounts[matched] += 1;
+                        }
+                    });
+                }
+            });
+
+            // ANALISIS WOLA MANAJERIAL
+            const totalPoints = Object.values(points).reduce((a, b) => a + b, 0);
+            const numStaff = TIM.length;
+            const avgPoints = (totalPoints / (numStaff || 1)).toFixed(1);
+            
+            let wolaStatusBadge = "";
+            if (avgPoints <= 15) {
+                wolaStatusBadge = `<span class="px-2.5 py-1 bg-emerald-100 text-emerald-800 rounded-lg font-bold border border-emerald-200">🟢 Kapasitas Aman</span>`;
+            } else if (avgPoints <= 25) {
+                wolaStatusBadge = `<span class="px-2.5 py-1 bg-amber-100 text-amber-800 rounded-lg font-bold border border-amber-200">🟡 Kapasitas High Utilized</span>`;
+            } else {
+                wolaStatusBadge = `<span class="px-2.5 py-1 bg-rose-100 text-rose-800 rounded-lg font-bold border border-rose-200">🔴 Overload (Potensi Lembur)</span>`;
+            }
+
+            // Render WOLA Summary Cards
+            const wolaContainer = document.getElementById('wolaSummaryCards');
+            if (wolaContainer) {
+                wolaContainer.innerHTML = `
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-200/80 flex flex-col justify-between">
+                        <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Beban Tim (WOLA)</span>
+                        <div class="flex items-baseline gap-2 mt-1">
+                            <span class="text-xl font-extrabold text-slate-900">${totalPoints} POIN</span>
+                            <span class="text-[11px] text-slate-500 font-medium">(&approx; ${totalPoints * 2} Jam Kerja Murni)</span>
+                        </div>
+                    </div>
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-200/80 flex flex-col justify-between">
+                        <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Rata-Rata Beban Per Staf</span>
+                        <div class="flex items-baseline gap-2 mt-1">
+                            <span class="text-xl font-extrabold text-blue-700">${avgPoints} POIN</span>
+                            <span class="text-[11px] text-slate-500 font-medium">/ 20 Poin Normal</span>
+                        </div>
+                    </div>
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-200/80 flex flex-col justify-between">
+                        <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Status Analisis WOLA</span>
+                        <div class="flex items-center gap-1.5 text-xs">
+                            ${wolaStatusBadge}
+                        </div>
+                    </div>
+                `;
+            }
+
+            const container = document.getElementById('personelStats');
+            container.innerHTML = TIM.map(t => {
+                const pt = points[t];
+                const tc = taskCounts[t];
+                const badgeStyle = getWorkloadBadgeStyle(pt);
+                return `
+                    <div class="bg-slate-50 p-2.5 sm:p-3 rounded-xl border border-slate-200/70 flex items-center justify-between gap-1.5 shadow-2xs">
+                        <div class="flex flex-col">
+                            <span class="font-bold text-slate-800 text-[11px] sm:text-xs tracking-tight">${t.toUpperCase()}</span>
+                            <span class="text-[10px] text-slate-500 font-semibold mt-0.5">📦 ${tc} Order</span>
+                        </div>
+                        <span class="font-extrabold px-2 py-0.5 rounded-lg text-[10px] sm:text-xs border shrink-0 ${badgeStyle}">${pt} POIN</span>
+                    </div>
+                `;
+            }).join('');
+
+            // RENDER KARTU PENJELASAN & REKOMENDASI DYNAMIS
+            renderWolaInsights(points, taskCounts, totalPoints, avgPoints);
+        }
+
+        // FUNGSI KHUSUS ANALISA HASIL & REKOMENDASI
+        function renderWolaInsights(points, taskCounts, totalPoints, avgPoints) {
+            const panel = document.getElementById('wolaInsightsPanel');
+            if (!panel) return;
+
+            const overloadStaff = TIM.filter(t => points[t] > 25);
+            const highStaff = TIM.filter(t => points[t] >= 16 && points[t] <= 25);
+            const amanStaff = TIM.filter(t => points[t] <= 15);
+
+            let rekomendasiList = [];
+
+            // 1. Rekomendasi Workload Balancing
+            if (overloadStaff.length > 0 && amanStaff.length > 0) {
+                rekomendasiList.push(`<strong>Pemerataan Beban Kerja (Rebalancing):</strong> Staf <code>${overloadStaff.join(', ')}</code> berstatus <strong>Overload</strong>. Alihkan permintaan order baru yang bersifat rutin/sederhana kepada <code>${amanStaff.join(', ')}</code> yang masih memiliki kapasitas longgar.`);
+            } else if (highStaff.length >= 4) {
+                rekomendasiList.push(`<strong>Kapasitas Tim Sangat Padat:</strong> Mayoritas staf (${highStaff.join(', ')}) berada di ambang batas atas (16–25 Poin). Disarankan membatasi order mendadak atau mengimbangi tim bertugas.`);
+            } else if (amanStaff.length === TIM.length) {
+                rekomendasiList.push(`<strong>Kapasitas Tim Sangat Aman:</strong> Seluruh personel berada di zona hijau (&le;15 Poin). Tim siap menerima proyek strategi baru atau pengembangan aset materi publikasi sekolah.`);
+            }
+
+            // 2. Rekomendasi Kesiapan Materi Mentah
+            if (avgPoints > 18) {
+                rekomendasiList.push(`<strong>Ketegasan Materi Mentah (Brief Matang):</strong> Minta unit pemohon menyerahkan draf teks & aset yang sudah 100% final sebelum penugasan dimulai untuk mencegah penambahan bobot +1 Poin akibat penyusunan dari nol.`);
+            }
+
+            // 3. Rekomendasi Focus Time & Context Switching
+            const highTaskStaff = TIM.filter(t => taskCounts[t] >= 8);
+            if (highTaskStaff.length > 0) {
+                rekomendasiList.push(`<strong>Perlindungan Context Switching:</strong> Staf <code>${highTaskStaff.join(', ')}</code> memegang frekuensi order tinggi (&ge;8 order). Lindungi waktu fokus mereka dengan mengelompokkan jadwal revisi di jam tertentu.`);
+            }
+
+            // 4. Evaluasi Kecukupan Tim & Opsi Vendor Temporer
+            if (avgPoints > 25) {
+                rekomendasiList.push(`<strong>Opsi Bantuan Temporer (Vendor/Freelance):</strong> Beban kerja periode ini tergolong Overload. Jika kegiatan puncak serupa diproyeksikan berulang, pertimbangkan bantuan vendor eksternal atau desainer freelance sementara.`);
+            } else {
+                rekomendasiList.push(`<strong>Kecukupan Tim Internal:</strong> Seluruh volume penugasan periode ini ter-cover secara optimal oleh 6 personel internal tanpa memerlukan dukungan luar.`);
+            }
+
+            panel.innerHTML = `
+                <div class="bg-gradient-to-r from-slate-900 to-slate-800 text-white p-4 sm:p-5 rounded-2xl shadow-sm border border-slate-700/60 space-y-3.5">
+                    <div class="flex items-center justify-between border-b border-slate-700/80 pb-2.5">
+                        <div class="flex items-center gap-2">
+                            <span class="text-lg">💡</span>
+                            <h3 class="font-extrabold text-xs sm:text-sm tracking-wide uppercase text-blue-300">ANALISA HASIL & REKOMENDASI</h3>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                        <!-- Maksud Angka WOLA -->
+                        <div class="bg-slate-800/80 p-3.5 rounded-xl border border-slate-700/70 space-y-2">
+                            <span class="font-bold text-amber-400 block text-[11px] uppercase tracking-wider">🔍 MAKSUD ANGKA REKAP WOLA:</span>
+                            <ul class="space-y-1.5 text-slate-300 text-[11px] leading-relaxed list-disc pl-4">
+                                <li><strong>Total ${totalPoints} Poin WOLA:</strong> Setara &approx; <strong>${totalPoints * 2} Jam Kerja Efektif Murni</strong> karya desainer/dokumentator bulan ini.</li>
+                                <li><strong>Rata-rata ${avgPoints} Poin/Staf:</strong> Standar ideal adalah 20 Poin (40 jam murni/bulan). Kapasitas terpakai tim saat ini: <strong>${((avgPoints/20)*100).toFixed(0)}%</strong>.</li>
+                                <li><strong>Overload (>25 Poin):</strong> ${overloadStaff.length > 0 ? `<span class="text-rose-400 font-bold">${overloadStaff.join(', ')}</span>` : '<span class="text-slate-400 italic">Tidak ada</span>'}.</li>
+                                <li><strong>High Utilized (16-25 Poin):</strong> ${highStaff.length > 0 ? `<span class="text-amber-300 font-bold">${highStaff.join(', ')}</span>` : '<span class="text-slate-400 italic">Tidak ada</span>'}.</li>
+                                <li><strong>Kapasitas Longgar (&le;15 Poin):</strong> ${amanStaff.length > 0 ? `<span class="text-emerald-400 font-bold">${amanStaff.join(', ')}</span>` : '<span class="text-slate-400 italic">Tidak ada</span>'}.</li>
+                            </ul>
+                        </div>
+
+                        <!-- Arahan / Rekomendasi Kebijakan -->
+                        <div class="bg-slate-800/80 p-3.5 rounded-xl border border-slate-700/70 space-y-2">
+                            <span class="font-bold text-emerald-400 block text-[11px] uppercase tracking-wider">🎯 REKOMENDASI KEBIJAKAN / ARAHAN:</span>
+                            <ul class="space-y-2 text-slate-200 text-[11px] leading-relaxed list-decimal pl-4">
+                                ${rekomendasiList.map(item => `<li>${item}</li>`).join('')}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderTable(data) {
+            const tbody = document.getElementById('orderTable');
+            if (data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" class="text-center p-8 text-slate-400 font-medium">Tidak ada orderan pada periode ini.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = data.map(item => {
+                const isAlat = isPeminjamanAlat(item);
+                
+                return `
+                <tr class="hover:bg-slate-50/80 transition border-b border-slate-100 last:border-b-0">
+                    <td class="p-3.5 sm:p-4 pl-4 sm:pl-6 align-top">
+                        <div class="font-bold text-blue-600 text-xs sm:text-sm">${item.tglFormatted}</div>
+                        <div class="text-[11px] sm:text-xs text-slate-500 font-medium mt-0.5 flex items-center gap-1 flex-wrap">
+                            <span>⏰ ${item.jam || item.jamAmbil || '-'}</span>
+                            ${item.durasi ? '<span class="text-slate-300">|</span> <span>⌛ ' + item.durasi + '</span>' : ''}
+                        </div>
+                        <span class="inline-block mt-1.5 px-2 py-0.5 bg-slate-100 text-slate-700 font-bold text-[10px] rounded-md border border-slate-200 uppercase">
+                            ${item.unit}
+                        </span>
+                    </td>
+                    <td class="p-3.5 sm:p-4 align-top space-y-1.5">
+                        <div class="font-bold text-slate-900 text-xs sm:text-base leading-snug flex items-center gap-1.5 flex-wrap">
+                            <span>${item.kegiatan}</span>
+                            <button onclick="editBobotAdmin(${item.rowId}, ${item.bobot})" 
+                                title="Klik untuk ubah poin cepat (Khusus Admin)"
+                                class="${isAlat ? 'bg-slate-100 text-slate-500 border-slate-300' : 'bg-purple-100/80 hover:bg-purple-200 active:bg-purple-300 text-purple-800 border-purple-200'} text-[10px] font-bold px-2 py-0.5 rounded border transition flex items-center gap-1">
+                                ⚙️ ${isAlat ? 0 : item.bobot} POIN
+                            </button>
+                            <button onclick="openSubTaskModal(${item.rowId})" 
+                                title="Pecah menjadi Sub-Tugas / Baris Turunan (Khusus Admin)"
+                                class="bg-blue-100/80 hover:bg-blue-200 active:bg-blue-300 text-blue-800 text-[10px] font-bold px-2 py-0.5 rounded border border-blue-200 transition flex items-center gap-1">
+                                ➕ Sub-Tugas
+                            </button>
+                            <button onclick="openEditOrderModal(${item.rowId})" 
+                                title="Edit Rincian Order / Sub-Tugas (Khusus Admin)"
+                                class="bg-amber-100/80 hover:bg-amber-200 active:bg-amber-300 text-amber-900 text-[10px] font-bold px-2 py-0.5 rounded border border-amber-300 transition flex items-center gap-1">
+                                ✏️ Edit
+                            </button>
+                            <button onclick="deleteOrderAdmin(${item.rowId})" 
+                                title="Hapus Order / Sub-Tugas (Khusus Admin)"
+                                class="bg-rose-100/80 hover:bg-rose-200 active:bg-rose-300 text-rose-800 text-[10px] font-bold px-2 py-0.5 rounded border border-rose-300 transition flex items-center gap-1">
+                                🗑️ Hapus
+                            </button>
+                            ${isAlat ? '<span class="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded border border-amber-200">HANYA ALAT SAJA</span>' : ''}
+                        </div>
+                        <div class="text-[11px] sm:text-xs text-slate-500 font-medium">PIC: <span class="text-slate-700 font-semibold">${item.pic}</span></div>
+                        <button onclick="toggleDetail('${item.rowId}')" class="text-[11px] sm:text-xs text-blue-600 hover:text-blue-800 font-bold inline-flex items-center gap-1 pt-1">
+                            <span>LIHAT DETAIL</span>
+                            <span class="text-[9px]">▼</span>
+                        </button>
+                        <div id="detail-${item.rowId}" class="hidden mt-2 p-3 bg-slate-50 rounded-xl text-[11px] sm:text-xs text-slate-600 border border-slate-200 space-y-1 leading-relaxed">
+                            <div><strong class="text-slate-800">Jenis Pekerjaan:</strong> ${item.jenisKerja}</div>
+                            <div><strong class="text-slate-800">Detail:</strong> ${item.detail}</div>
+                            <div><strong class="text-slate-800">Peralatan:</strong> ${item.alat}</div>
+                            <div><strong class="text-slate-800">Jam Pinjam/Kembali:</strong> ${item.jamAmbil} / ${item.jamKembali}</div>
+                        </div>
+                    </td>
+                    <td class="p-3.5 sm:p-4 align-top">
+                        ${isAlat ? `
+                            <div class="flex items-center gap-1.5 text-[11px] sm:text-xs text-amber-800 bg-amber-50/80 border border-amber-200/80 px-2.5 py-1.5 rounded-xl font-medium">
+                                <span>🔧</span>
+                                <span>Hanya peminjaman alat</span>
+                            </div>
+                        ` : `
+                            <div class="flex flex-wrap gap-1 sm:gap-1.5">
+                                ${TIM.map(t => {
+                                    const active = item.petugas.some(p => p.toLowerCase() === t.toLowerCase());
+                                    return `
+                                        <button onclick="togglePetugas(${item.rowId}, '${t}')" 
+                                            class="px-2 sm:px-2.5 py-1 text-[11px] sm:text-xs font-semibold rounded-lg transition-all ${active ? 'bg-blue-600 text-white shadow-xs font-bold' : 'bg-slate-100 hover:bg-slate-200 text-slate-600'}">
+                                            ${t}
+                                        </button>
+                                    `;
+                                }).join('')}
+                            </div>
+                        `}
+                    </td>
+                    <td class="p-3.5 sm:p-4 align-top text-center">
+                        <select onchange="updateStatus(${item.rowId}, this.value)" 
+                            class="text-[11px] sm:text-xs font-bold px-2.5 py-1.5 rounded-xl border focus:outline-none transition shadow-2xs ${getStatusStyle(item.status)}">
+                            <option value="In Progress" ${item.status === 'In Progress' ? 'selected' : ''}>⏳ In Progress</option>
+                            <option value="Done" ${item.status === 'Done' ? 'selected' : ''}>✅ Done</option>
+                            <option value="Canceled" ${item.status === 'Canceled' ? 'selected' : ''}>❌ Canceled</option>
+                        </select>
+                    </td>
+                </tr>
+            `}).join('');
+        }
+
+        function renderScheduleCards(data) {
+            const container = document.getElementById('scheduleCards');
+            container.innerHTML = TIM.map(t => {
+                const tasks = data.filter(d => !isPeminjamanAlat(d) && d.status !== 'Canceled' && d.petugas.some(p => p.toLowerCase() === t.toLowerCase()));
+                return `
+                    <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col justify-between">
+                        <div>
+                            <div class="flex justify-between items-center pb-2.5 mb-3 border-b border-slate-100">
+                                <h3 class="font-extrabold text-slate-900 text-base sm:text-lg">${t}</h3>
+                                <span class="bg-blue-50 text-blue-700 font-bold px-2.5 py-0.5 rounded-full text-xs border border-blue-100">${tasks.length} Order</span>
+                            </div>
+                            <div class="space-y-2.5">
+                                ${tasks.length === 0 ? '<p class="text-xs text-slate-400 italic py-2">Tidak ada penugasan.</p>' : tasks.map(tk => `
+                                    <div class="p-2.5 bg-slate-50/90 rounded-xl border border-slate-200/70 text-xs space-y-0.5">
+                                        <div class="font-bold text-blue-600 text-[11px]">${tk.tglFormatted}</div>
+                                        <div class="font-bold text-slate-800 leading-snug">${tk.kegiatan}</div>
+                                        <div class="text-slate-500 text-[10px] font-medium">${tk.unit} | PIC: ${tk.pic}</div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function getStatusStyle(status) {
+            switch(status) {
+                case 'Done': return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+                case 'Canceled': return 'bg-rose-50 text-rose-700 border-rose-200';
+                default: return 'bg-amber-50 text-amber-700 border-amber-200';
+            }
+        }
+
+        async function togglePetugas(rowId, nama) {
+            if (!checkAdminAccess()) return;
+            const idx = allData.findIndex(d => d.rowId === rowId);
+            if (idx === -1) return;
+
+            let list = [...allData[idx].petugas];
+            const pIdx = list.findIndex(p => p.toLowerCase() === nama.toLowerCase());
+            if (pIdx > -1) list.splice(pIdx, 1);
+            else list.push(nama);
+
+            allData[idx].petugas = list;
+            renderDashboard();
+            await syncData(rowId, list, allData[idx].status, allData[idx].bobot);
+        }
+
+        async function editBobotAdmin(rowId, bobotSaatIni) {
+            if (!checkAdminAccess()) return;
+            const inputBaru = prompt(`✏️ Ubah Poin Bobot Pekerjaan:`, bobotSaatIni);
+            if (inputBaru === null) return;
+            const val = parseFloat(inputBaru);
+            if (isNaN(val) || val <= 0) {
+                alert("⚠️ Masukkan angka poin yang valid.");
+                return;
+            }
+
+            const idx = allData.findIndex(d => d.rowId === rowId);
+            if (idx !== -1) {
+                allData[idx].bobot = val;
+                renderDashboard();
+                await syncData(rowId, allData[idx].petugas, allData[idx].status, val);
+            }
+        }
+
+        async function updateStatus(rowId, statusBaru) {
+            if (!checkAdminAccess()) return;
+            const idx = allData.findIndex(d => d.rowId === rowId);
+            if (idx === -1) return;
+
+            allData[idx].status = statusBaru;
+            renderDashboard();
+            await syncData(rowId, allData[idx].petugas, statusBaru, allData[idx].bobot);
+        }
+
+        async function syncData(rowId, petugasList, status, bobot) {
+            try {
+                document.body.style.cursor = 'wait';
+                const item = allData.find(d => d.rowId === rowId);
+                const payload = {
+                    action: "updateOrder",
+                    rowId: rowId,
+                    petugasList: petugasList,
+                    status: status,
+                    bobot: bobot,
+                    tgl: item ? item.tglRaw : "",
+                    unit: item ? item.unit : "",
+                    kegiatan: item ? item.kegiatan : "",
+                    pic: item ? item.pic : "",
+                    jenisKerja: item ? item.jenisKerja : "",
+                    detail: item ? item.detail : ""
+                };
+                await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                document.body.style.cursor = 'default';
+            } catch (error) {
+                console.error("Gagal sinkronisasi data:", error);
+                document.body.style.cursor = 'default';
+            }
+        }
+
+        function copyRekapWA() {
+            const selectedMonth = document.getElementById('monthFilter').value;
+            const filteredData = allData.filter(item => item.bulanTahun === selectedMonth && item.status !== 'Canceled');
+
+            let text = `*REKAP PENUGASAN TIM PUBLIKASI - ${selectedMonth.toUpperCase()}*\n\n`;
+            TIM.forEach(t => {
+                const tasks = filteredData.filter(d => !isPeminjamanAlat(d) && d.petugas.some(p => p.toLowerCase() === t.toLowerCase()));
+                text += `*${t.toUpperCase()}* (${tasks.length} order):\n`;
+                if (tasks.length === 0) text += `- Nihil\n`;
+                else {
+                    tasks.forEach(tk => { text += `- ${tk.tglFormatted}: ${tk.kegiatan} (${tk.unit})\n`; });
+                }
+                text += `\n`;
+            });
+
+            navigator.clipboard.writeText(text).then(() => {
+                alert("Teks rekap WhatsApp berhasil disalin ke clipboard!");
+            });
+        }
+
+        function toggleDetail(id) { document.getElementById(`detail-${id}`).classList.toggle('hidden'); }
+
+        fetchData();
+    </script>
+</body>
+</html>
