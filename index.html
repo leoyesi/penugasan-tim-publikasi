@@ -1,0 +1,288 @@
+// =================================================================
+// KODE GOOGLE APPS SCRIPT (Code.gs) - REVISI FITUR CRUD & SYNC POIN WOLA
+// Backend API Web App Dashboard Penugasan Tim Publikasi
+// =================================================================
+
+const SPREADSHEET_ID = "17mh0yuN-e6IAbcEtL8vhAdyp7AdEa0q93ijUfuQM40A"; 
+
+function getSpreadsheet() {
+  if (SPREADSHEET_ID && SPREADSHEET_ID.trim() !== "") {
+    return SpreadsheetApp.openById(SPREADSHEET_ID);
+  }
+  return SpreadsheetApp.getActiveSpreadsheet();
+}
+
+function doGet() {
+  try {
+    const ss = getSpreadsheet();
+    if (!ss) throw new Error("Spreadsheet tidak ditemukan.");
+    
+    const sheet = ss.getSheets()[0]; 
+    const rawValues = sheet.getDataRange().getValues(); 
+    const displayValues = sheet.getDataRange().getDisplayValues(); 
+    
+    let output = [];
+    const timNames = ["magang", "dodai", "nia", "wahyu", "yesi", "indri", "lio", "joan"];
+
+    for (let i = 1; i < displayValues.length; i++) {
+      let row = displayValues[i];
+      let rawRow = rawValues[i];
+      
+      if (!row || row.join("").trim() === "") continue;
+
+      let infoKegiatan = row[7] || row[28] || row[27] || row[23] || "Order tanpa nama"; 
+      let jenisKerja = row[23] || row[13] || "-"; 
+      let detailKebutuhan = row[28] || row[11] || "Tidak ada detail spesifik dicantumkan."; 
+
+      let infoAlat = row[21] || "-"; 
+      let jamAmbil = row[22] || "-"; 
+      let jamKembali = row[30] || "-"; 
+
+      // Detail Form
+      let rincianOutput = row[28] || detailKebutuhan;
+      let kesiapanTeks = row[31] || "-";
+      let ketersediaanFoto = row[32] || "-";
+      let linkDrive = (row[33] && String(row[33]).indexOf("http") !== -1) ? row[33] : ((row[37] && String(row[37]).indexOf("http") !== -1) ? row[37] : "");
+      let catatanTambahan = row[34] || "-";
+
+      // --- SMART READ PETUGAS (Utamakan Kolom AN [39], Fallback ke AM [38], AL [37], AH [33]) ---
+      let petugasRaw = "";
+      const petugasIndices = [39, 38, 37, 33];
+      for (let k = 0; k < petugasIndices.length; k++) {
+        let idx = petugasIndices[k];
+        if (row[idx]) {
+          let strVal = String(row[idx]).trim();
+          let strLower = strVal.toLowerCase();
+          let hasTeam = timNames.some(function(tm) { return strLower.indexOf(tm) !== -1; });
+          if (hasTeam && strLower.indexOf("http") === -1) {
+            petugasRaw = strVal;
+            break;
+          }
+        }
+      }
+
+      // --- SMART READ STATUS (Utamakan Kolom AO [40], Fallback ke AN [39], AM [38]) ---
+      let statusRaw = "In Progress";
+      const statusIndices = [40, 39, 38, 34];
+      for (let k = 0; k < statusIndices.length; k++) {
+        let idx = statusIndices[k];
+        if (row[idx]) {
+          let strVal = String(row[idx]).trim();
+          let strLower = strVal.toLowerCase();
+          if (strLower === "done" || strLower === "in progress" || strLower === "canceled" || strLower === "batal") {
+            statusRaw = (strLower === "done") ? "Done" : ((strLower === "batal" || strLower === "canceled") ? "Canceled" : "In Progress");
+            break;
+          }
+        }
+      }
+
+      // --- SMART READ BOBOT POIN (Utamakan Kolom AM [38], Fallback ke AK [36], AG [32]) ---
+      let bobot = 1;
+      const bobotIndices = [38, 36, 32];
+      for (let k = 0; k < bobotIndices.length; k++) {
+        let idx = bobotIndices[k];
+        if (row[idx]) {
+          let num = parseFloat(row[idx]);
+          if (!isNaN(num) && num > 0) {
+            bobot = num;
+            break;
+          }
+        }
+      }
+
+      // Fallback kata kunci jika bobot belum diisi
+      if (bobot === 1) {
+        let teksJenis = (jenisKerja + " " + detailKebutuhan + " " + infoKegiatan).toLowerCase();
+        if (teksJenis.indexOf("buku") !== -1 || teksJenis.indexOf("layout buku") !== -1 || teksJenis.indexOf("kampanye") !== -1 || teksJenis.indexOf("yearbook") !== -1) {
+          bobot = 4;
+        } else if (teksJenis.indexOf("reels") !== -1 || teksJenis.indexOf("video promosi") !== -1 || teksJenis.indexOf("karusel") !== -1 || teksJenis.indexOf("carousel") !== -1 || teksJenis.indexOf("3–10 slide") !== -1) {
+          bobot = 3;
+        } else if (teksJenis.indexOf("video") !== -1 || teksJenis.indexOf("foto") !== -1 || teksJenis.indexOf("liputan") !== -1 || teksJenis.indexOf("banner") !== -1 || teksJenis.indexOf("spanduk") !== -1 || teksJenis.indexOf("poster") !== -1) {
+          bobot = 2;
+        }
+      }
+
+      let parsedDate = null;
+      let rawTglStr = "";
+      let fallbackTeks = row[24] || row[8] || row[22] || row[0] || "";
+
+      const priorityIndices = [24, 8, 22, 0];
+      for (let idx of priorityIndices) {
+        if (rawRow[idx] instanceof Date && !isNaN(rawRow[idx].getTime())) {
+          parsedDate = rawRow[idx];
+          break;
+        }
+      }
+
+      if (!parsedDate && fallbackTeks !== "") {
+        let textStr = String(fallbackTeks).trim();
+        if (textStr.includes("/")) {
+          let parts = textStr.split("/");
+          if (parts.length >= 3) {
+            let d = parseInt(parts[0], 10);
+            let m = parseInt(parts[1], 10) - 1;
+            let y = parseInt(parts[2], 10);
+            if (y < 100) y += 2000;
+            let possibleDate = new Date(y, m, d);
+            if (!isNaN(possibleDate.getTime()) && possibleDate.getDate() === d) parsedDate = possibleDate;
+          }
+        }
+        if (!parsedDate) {
+          let tempDate = new Date(textStr);
+          if (!isNaN(tempDate.getTime())) parsedDate = tempDate;
+        }
+      }
+
+      let bulanTahun = "Tanpa Tanggal", sortValue = 0, tglFormatted = fallbackTeks || "Tanpa Tgl", hari = "";
+
+      if (parsedDate instanceof Date && !isNaN(parsedDate.getTime())) {
+         const namaBulan = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+         const namaHari = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+         bulanTahun = namaBulan[parsedDate.getMonth()] + " " + parsedDate.getFullYear();
+         sortValue = parsedDate.getTime();
+         tglFormatted = Utilities.formatDate(parsedDate, "GMT+7", "dd MMM yyyy");
+         rawTglStr = Utilities.formatDate(parsedDate, "GMT+7", "yyyy-MM-dd");
+         hari = namaHari[parsedDate.getDay()];
+      }
+
+      output.push({
+        rowId: i + 1,
+        unit: row[2] || "-", 
+        pic: row[3] || "-", 
+        kegiatan: infoKegiatan,
+        jenisKerja: jenisKerja,
+        detail: detailKebutuhan,
+        rincianOutput: rincianOutput,
+        kesiapanTeks: kesiapanTeks,
+        ketersediaanFoto: ketersediaanFoto,
+        linkDrive: linkDrive,
+        catatanTambahan: catatanTambahan,
+        alat: infoAlat,         
+        jamAmbil: jamAmbil,     
+        jamKembali: jamKembali, 
+        tglFormatted: tglFormatted,
+        tglRaw: rawTglStr,
+        hari: hari,
+        bulanTahun: bulanTahun,
+        sortValue: sortValue,
+        jam: row[25] || "", 
+        durasi: row[26] || "",
+        bobot: bobot,
+        petugas: petugasRaw ? petugasRaw.split(",").map(function(s) { return s.trim(); }).filter(function(s) { return s !== ""; }) : [], 
+        status: statusRaw || "In Progress" 
+      });
+    }
+
+    output.sort(function(a, b) { return a.sortValue - b.sortValue; });
+    return ContentService.createTextOutput(JSON.stringify(output)).setMimeType(ContentService.MimeType.JSON);
+
+  } catch (error) {
+    return ContentService.createTextOutput(JSON.stringify({ status: "error", message: error.message }))
+                         .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+function doPost(e) {
+  try {
+    const params = JSON.parse(e.postData.contents);
+    const ss = getSpreadsheet();
+    const sheet = ss.getSheets()[0];
+    
+    const action = params.action || "updateOrder";
+    
+    // ACTION 1: PEMBUATAN SUB-TUGAS / BARIS TURUNAN BARU
+    if (action === "createSubTask") {
+      const parentRowId = params.parentRowId;
+      const maxCols = Math.max(sheet.getLastColumn(), 41);
+      
+      let parentValues = sheet.getRange(parentRowId, 1, 1, maxCols).getValues()[0];
+      let newRow = [...parentValues];
+      
+      newRow[7] = params.kegiatan || (parentValues[7] + " (Sub-Tugas)"); // Col H: Nama Kegiatan
+      if (params.jenisKerja) newRow[23] = params.jenisKerja;              // Col X: Jenis Pekerjaan
+      if (params.detail) newRow[28] = params.detail;                      // Col AC: Detail
+      if (params.tglPenugasan) newRow[24] = params.tglPenugasan;          // Col Y: Tgl Penugasan
+      
+      newRow[38] = params.bobot !== undefined ? params.bobot : 1;         // Col AM (39): Bobot Poin WOLA
+      newRow[39] = params.petugasList ? params.petugasList.join(", ") : ""; // Col AN (40): Petugas
+      newRow[40] = params.status || "In Progress";                        // Col AO (41): Status
+      
+      sheet.appendRow(newRow);
+      const newRowId = sheet.getLastRow();
+      
+      return ContentService.createTextOutput(JSON.stringify({ 
+        status: "success", 
+        newRowId: newRowId,
+        message: "Sub-tugas berhasil dibuat!" 
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    // ACTION 2: PENAMBAHAN ORDER MENDADAK BARU (AD-HOC)
+    else if (action === "createOrder") {
+      const maxCols = 41;
+      let newRow = new Array(maxCols).fill("");
+      
+      newRow[2] = params.unit || "Lainnya";                               // Col C: Unit
+      newRow[3] = params.pic || "Mendadak";                               // Col D: PIC
+      newRow[7] = params.kegiatan || "Order Mendadak";                   // Col H: Nama Kegiatan
+      newRow[23] = params.jenisKerja || "Desain Grafis";                  // Col X: Jenis Pekerjaan
+      newRow[24] = params.tgl || new Date();                              // Col Y: Tanggal
+      newRow[28] = params.detail || "";                                   // Col AC: Detail
+      newRow[38] = params.bobot !== undefined ? params.bobot : 1;         // Col AM (39): Bobot Poin WOLA
+      newRow[39] = params.petugasList ? params.petugasList.join(", ") : ""; // Col AN (40): Petugas
+      newRow[40] = params.status || "In Progress";                        // Col AO (41): Status
+      
+      sheet.appendRow(newRow);
+      return ContentService.createTextOutput(JSON.stringify({ 
+        status: "success", 
+        newRowId: sheet.getLastRow(),
+        message: "Order Mendadak berhasil dibuat!" 
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // ACTION 3: HAPUS ORDER / SUB-TUGAS (DELETE)
+    else if (action === "deleteOrder") {
+      const rowId = parseInt(params.rowId, 10);
+      if (rowId && rowId > 1) {
+        sheet.deleteRow(rowId);
+        return ContentService.createTextOutput(JSON.stringify({ 
+          status: "success", 
+          message: "Order berhasil dihapus!" 
+        })).setMimeType(ContentService.MimeType.JSON);
+      } else {
+        throw new Error("Row ID tidak valid untuk dihapus.");
+      }
+    }
+
+    // ACTION 4: EDIT / SINKRONISASI POIN, PETUGAS, STATUS & RINCIAN ORDER (UPDATE)
+    else {
+      const rowId = parseInt(params.rowId, 10);
+      if (!rowId || rowId <= 1) throw new Error("Row ID tidak valid.");
+
+      const petugasList = Array.isArray(params.petugasList) ? params.petugasList.join(", ") : (params.petugasList || ""); 
+      const statusKerja = params.status || "In Progress"; 
+      const bobotPoin = params.bobot !== undefined ? params.bobot : 1;
+
+      // Update Kolom Utama WOLA
+      sheet.getRange(rowId, 39).setValue(bobotPoin);   // Kolom AM (39) = Bobot Poin WOLA
+      sheet.getRange(rowId, 40).setValue(petugasList); // Kolom AN (40) = Petugas Bertugas
+      sheet.getRange(rowId, 41).setValue(statusKerja); // Kolom AO (41) = Status
+
+      // Update Rincian Opsional jika dikirim dari Form Edit
+      if (params.kegiatan) sheet.getRange(rowId, 8).setValue(params.kegiatan);  // Col H (8) = Nama Kegiatan
+      if (params.unit) sheet.getRange(rowId, 3).setValue(params.unit);          // Col C (3) = Unit Pemohon
+      if (params.pic) sheet.getRange(rowId, 4).setValue(params.pic);            // Col D (4) = PIC Pemohon
+      if (params.jenisKerja) sheet.getRange(rowId, 24).setValue(params.jenisKerja); // Col X (24) = Jenis Pekerjaan
+      if (params.detail) sheet.getRange(rowId, 29).setValue(params.detail);     // Col AC (29) = Detail
+      if (params.tgl) sheet.getRange(rowId, 25).setValue(params.tgl);           // Col Y (25) = Tanggal Penugasan
+
+      return ContentService.createTextOutput(JSON.stringify({ 
+        status: "success", 
+        message: "Data order berhasil diperbarui!" 
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+  } catch (error) {
+    return ContentService.createTextOutput(JSON.stringify({ status: "error", message: error.message }))
+                         .setMimeType(ContentService.MimeType.JSON);
+  }
+}
